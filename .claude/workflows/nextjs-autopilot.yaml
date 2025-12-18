@@ -1,0 +1,13 @@
+# nextjs-全自动优化工作流
+name: nextjs-autopilot
+description: 端到端Next.js项目优化
+steps:
+  - command: /review-architecture
+    args: ["./"]
+  - command: /optimize-javascript
+    args: ["src/"]
+  - command: /refactor-components
+    args: ["app/"]
+  - command: /run-performance-test
+  - command: /generate-tests
+  - command: /create-report

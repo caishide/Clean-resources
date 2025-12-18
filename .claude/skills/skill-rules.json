@@ -1,0 +1,688 @@
+{
+    "version": "1.0",
+    "description": "Skill activation triggers for Claude Code. Controls when skills automatically suggest or block actions.",
+    "skills": {
+        "skill-developer": {
+            "type": "domain",
+            "enforcement": "suggest",
+            "priority": "high",
+            "description": "Meta-skill for creating and managing Claude Code skills",
+            "promptTriggers": {
+                "keywords": [
+                    "skill system",
+                    "create skill",
+                    "add skill",
+                    "skill triggers",
+                    "skill rules",
+                    "hook system",
+                    "skill development",
+                    "skill-rules.json"
+                ],
+                "intentPatterns": [
+                    "(how do|how does|explain).*?skill",
+                    "(create|add|modify|build).*?skill",
+                    "skill.*?(work|trigger|activate|system)"
+                ]
+            }
+        },
+        "backend-dev-guidelines": {
+            "type": "domain",
+            "enforcement": "suggest",
+            "priority": "high",
+            "description": "Backend development patterns for Node.js/Express/TypeScript",
+            "promptTriggers": {
+                "keywords": [
+                    "backend",
+                    "backend development",
+                    "microservice",
+                    "controller",
+                    "service",
+                    "repository",
+                    "route",
+                    "routing",
+                    "express",
+                    "API",
+                    "endpoint",
+                    "middleware",
+                    "validation",
+                    "Zod",
+                    "Prisma",
+                    "database access",
+                    "BaseController",
+                    "dependency injection",
+                    "unifiedConfig",
+                    "configuration"
+                ],
+                "intentPatterns": [
+                    "(create|add|implement|build).*?(route|endpoint|API|controller|service|repository)",
+                    "(fix|handle|debug).*?(error|exception|backend)",
+                    "(add|implement).*?(middleware|validation|error.*?handling)",
+                    "(organize|structure|refactor).*?(backend|service|API)",
+                    "(how to|best practice).*?(backend|route|controller|service)"
+                ]
+            },
+            "fileTriggers": {
+                "pathPatterns": [
+                    "src/server/**/*.ts",
+                    "src/app/api/**/*.ts",
+                    "services/traffic-switcher/src/**/*.ts",
+                    "services/**/*.ts"
+                ],
+                "pathExclusions": [
+                    "**/*.test.ts",
+                    "**/*.spec.ts"
+                ],
+                "contentPatterns": [
+                    "router\\.",
+                    "app\\.(get|post|put|delete|patch)",
+                    "export.*Controller",
+                    "export.*Service",
+                    "prisma\\."
+                ]
+            }
+        },
+        "frontend-dev-guidelines": {
+            "type": "guardrail",
+            "enforcement": "suggest",
+            "priority": "high",
+            "description": "React/TypeScript best practices including MUI v7 compatibility",
+            "promptTriggers": {
+                "keywords": [
+                    "component",
+                    "react component",
+                    "UI",
+                    "interface",
+                    "page",
+                    "modal",
+                    "dialog",
+                    "form",
+                    "MUI",
+                    "Material-UI",
+                    "Grid",
+                    "styling",
+                    "frontend",
+                    "React"
+                ],
+                "intentPatterns": [
+                    "(create|add|make|build|update|modify|edit).*?(component|UI|page|modal|dialog|form)",
+                    "(how to|best practice).*?(component|react|MUI)",
+                    "(style|design|layout).*?(component|UI)"
+                ]
+            },
+            "fileTriggers": {
+                "pathPatterns": [
+                    "__disabled_frontend_skill__/**/*.never"
+                ],
+                "pathExclusions": [
+                    "**/*.test.tsx",
+                    "**/*.test.ts",
+                    "**/*.spec.tsx",
+                    "**/*.spec.ts",
+                    "**/*.styles.ts",
+                    "**/vite.config.ts",
+                    "**/tsconfig.json"
+                ],
+                "contentPatterns": [
+                    "from '@mui/material';",
+                    "import.*Grid.*from.*@mui",
+                    "<Grid ",
+                    "Grid2",
+                    "Unstable_Grid",
+                    "makeStyles",
+                    "@material-ui/core"
+                ]
+            },
+            "blockMessage": "⚠️ BLOCKED - Frontend Best Practices Required\n\n📋 REQUIRED ACTION:\n1. Use Skill tool: 'frontend-dev-guidelines'\n2. Review MUI v7 patterns (Grid uses size={{}} prop, NOT xs/sm props)\n3. Check React/TypeScript best practices\n4. Use proper styling patterns\n5. Then retry this edit\n\nReason: Enforce MUI v7 compatibility and React best practices\nFile: {file_path}\n\n💡 TIP: Add '// @skip-validation' comment to skip future checks",
+            "skipConditions": {
+                "sessionSkillUsed": true,
+                "fileMarkers": [
+                    "@skip-validation"
+                ],
+                "envOverride": "SKIP_FRONTEND_GUIDELINES"
+            }
+        },
+        "route-tester": {
+            "type": "domain",
+            "enforcement": "suggest",
+            "priority": "high",
+            "description": "Testing authenticated API routes with JWT cookie-based auth",
+            "promptTriggers": {
+                "keywords": [
+                    "test route",
+                    "test endpoint",
+                    "test API",
+                    "route testing",
+                    "API testing",
+                    "authenticated route",
+                    "JWT testing",
+                    "cookie auth",
+                    "test with auth"
+                ],
+                "intentPatterns": [
+                    "(test|debug|verify).*?(route|endpoint|API)",
+                    "(how to|how do I).*?test.*?(route|endpoint|API)",
+                    "test.*?(authenticated|auth|JWT|cookie)"
+                ]
+            },
+            "fileTriggers": {
+                "pathPatterns": [
+                    "src/app/api/**/*.ts",
+                    "src/server/**/*.ts",
+                    "tests/**/*.ts",
+                    "e2e/**/*.ts"
+                ],
+                "contentPatterns": [
+                    "router\\.(get|post|put|delete|patch)",
+                    "app\\.(get|post|put|delete|patch)"
+                ]
+            }
+        },
+        "error-tracking": {
+            "type": "domain",
+            "enforcement": "suggest",
+            "priority": "high",
+            "description": "Sentry error tracking and performance monitoring patterns",
+            "promptTriggers": {
+                "keywords": [
+                    "error handling",
+                    "exception",
+                    "sentry",
+                    "error tracking",
+                    "captureException",
+                    "monitoring",
+                    "performance tracking"
+                ],
+                "intentPatterns": [
+                    "(add|create|implement|setup).*?(error handling|sentry|error tracking)",
+                    "(fix|handle|catch).*?(error|exception)",
+                    "(how to|best practice).*?(error|sentry|monitoring)"
+                ]
+            },
+            "fileTriggers": {
+                "pathPatterns": [
+                    "**/instrumentation.ts",
+                    "**/sentry*.ts",
+                    "src/server/**/*.ts",
+                    "src/app/api/**/*.ts"
+                ],
+                "contentPatterns": [
+                    "@sentry",
+                    "Sentry\\.",
+                    "captureException",
+                    "captureMessage"
+                ]
+            }
+        },
+        "using-superpowers": {
+            "type": "domain",
+            "enforcement": "suggest",
+            "priority": "critical",
+            "description": "Meta-skill for using superpowers skills system - activates on every conversation",
+            "promptTriggers": {
+                "keywords": [
+                    "superpower",
+                    "superpowers",
+                    "skill system",
+                    "workflow",
+                    "process",
+                    "开始对话",
+                    "技能工具",
+                    "技能系统"
+                ],
+                "intentPatterns": [
+                    "(使用|使用).*?(superpower|skill|技能)",
+                    "(开始|启动).*?(工作|开发|项目)",
+                    "how to use.*?skill",
+                    "技能.*?(如何|怎么)"
+                ]
+            }
+        },
+        "brainstorming": {
+            "type": "domain",
+            "enforcement": "suggest",
+            "priority": "high",
+            "description": "Use when creating or developing, before writing code or implementation plans",
+            "promptTriggers": {
+                "keywords": [
+                    "头脑风暴",
+                    "brainstorm",
+                    "想法",
+                    "创意",
+                    "设计",
+                    "规划",
+                    "idea",
+                    "design",
+                    "create",
+                    "develop",
+                    "构思",
+                    "设想"
+                ],
+                "intentPatterns": [
+                    "(我想|我想|让我们).*?(头脑风暴|brainstorm|创意|想法)",
+                    "(创建|设计|规划|开发).*?(项目|功能|产品)",
+                    "我有个想法",
+                    "(create|design|plan|develop).*?(feature|project|product|app)",
+                    "(how to|如何).*?(design|create|plan)"
+                ]
+            }
+        },
+        "test-driven-development": {
+            "type": "domain",
+            "enforcement": "suggest",
+            "priority": "high",
+            "description": "Use when implementing any feature or bugfix, before writing implementation code",
+            "promptTriggers": {
+                "keywords": [
+                    "test-driven",
+                    "tdd",
+                    "test first",
+                    "red green refactor",
+                    "单元测试",
+                    "unit test",
+                    "写测试",
+                    "write test",
+                    "implement feature",
+                    "bug fix"
+                ],
+                "intentPatterns": [
+                    "(write|create).*?test.*?(first|before)",
+                    "(implement|add|build).*?(feature|functionality)",
+                    "(fix|repair).*?(bug|issue)",
+                    "(run|execute).*?(test|tests)",
+                    "TDD|Red.*?Green.*?Refactor"
+                ]
+            }
+        },
+        "systematic-debugging": {
+            "type": "domain",
+            "enforcement": "suggest",
+            "priority": "high",
+            "description": "Use when encountering any bug, test failure, or unexpected behavior",
+            "promptTriggers": {
+                "keywords": [
+                    "debug",
+                    "bug",
+                    "error",
+                    "failure",
+                    "issue",
+                    "problem",
+                    "unexpected",
+                    "调试",
+                    "错误",
+                    "失败"
+                ],
+                "intentPatterns": [
+                    "(fix|debug|solve).*?(bug|error|issue|problem)",
+                    "(why|为什么).*?(not working|failed|error)",
+                    "(test|测试).*?(fail|failing|failure)",
+                    "(调试|解决).*?(问题|错误|故障)"
+                ]
+            }
+        },
+        "writing-plans": {
+            "type": "domain",
+            "enforcement": "suggest",
+            "priority": "medium",
+            "description": "Use when design is complete and you need detailed implementation tasks",
+            "promptTriggers": {
+                "keywords": [
+                    "implementation plan",
+                    "执行计划",
+                    "任务清单",
+                    "task list",
+                    "steps",
+                    "详细计划",
+                    "detailed plan",
+                    "roadmap"
+                ],
+                "intentPatterns": [
+                    "(create|write|make).*?(plan|implementation|tasks)",
+                    "(详细|具体).*?(计划|步骤|task)",
+                    "how to implement",
+                    "what are the steps",
+                    "break down.*?into tasks"
+                ]
+            }
+        },
+        "executing-plans": {
+            "type": "domain",
+            "enforcement": "suggest",
+            "priority": "medium",
+            "description": "Use when partner provides a complete implementation plan to execute",
+            "promptTriggers": {
+                "keywords": [
+                    "execute plan",
+                    "执行计划",
+                    "follow plan",
+                    "implement plan",
+                    "run tasks",
+                    "execute tasks"
+                ],
+                "intentPatterns": [
+                    "(execute|follow|run|implement).*?(plan|tasks)",
+                    "(按照|根据).*?(计划|task)",
+                    "let's start implementing",
+                    "begin implementation"
+                ]
+            }
+        },
+        "subagent-driven-development": {
+            "type": "domain",
+            "enforcement": "suggest",
+            "priority": "medium",
+            "description": "Use when executing implementation plans with independent tasks",
+            "promptTriggers": {
+                "keywords": [
+                    "subagent",
+                    "agent delegation",
+                    "multiple tasks",
+                    "parallel tasks",
+                    "独立任务",
+                    "并行任务"
+                ],
+                "intentPatterns": [
+                    "(delegate|assign).*?(task|work).*?(agent)",
+                    "(multiple|parallel).*?(tasks|jobs)",
+                    "(分解|拆分).*?(任务|tasks)"
+                ]
+            }
+        },
+        "root-cause-tracing": {
+            "type": "domain",
+            "enforcement": "suggest",
+            "priority": "medium",
+            "description": "Use when errors occur deep in execution and you need to trace back",
+            "promptTriggers": {
+                "keywords": [
+                    "root cause",
+                    "trace back",
+                    "call stack",
+                    "源头",
+                    "根源",
+                    "追溯",
+                    "find source",
+                    "where did it start"
+                ],
+                "intentPatterns": [
+                    "(find|trace|identify).*?(root cause|source|origin)",
+                    "(where|哪里).*?(start|begin|come from)",
+                    "(追溯|查找).*?(源头|根源|原因)"
+                ]
+            }
+        },
+        "condition-based-waiting": {
+            "type": "domain",
+            "enforcement": "suggest",
+            "priority": "medium",
+            "description": "Use when tests have race conditions, timing dependencies",
+            "promptTriggers": {
+                "keywords": [
+                    "race condition",
+                    "timing",
+                    "wait",
+                    "timeout",
+                    "flaky test",
+                    "竞态条件",
+                    "定时",
+                    "超时"
+                ],
+                "intentPatterns": [
+                    "(test|测试).*?(fail|failing).*?(sometimes|intermittent)",
+                    "(wait|等待).*?(for|until)",
+                    "(timeout|超时).*?(error|issue)",
+                    "(flaky|inconsistent).*?(test|tests)"
+                ]
+            }
+        },
+        "defense-in-depth": {
+            "type": "domain",
+            "enforcement": "suggest",
+            "priority": "medium",
+            "description": "Use when invalid data causes failures deep in execution",
+            "promptTriggers": {
+                "keywords": [
+                    "validation",
+                    "defense",
+                    "input validation",
+                    "data validation",
+                    "防御",
+                    "验证",
+                    "多层验证"
+                ],
+                "intentPatterns": [
+                    "(validate|验证).*?(input|data|user)",
+                    "(add|implement).*?(validation|check)",
+                    "(多层|多层).*?(验证|检查)",
+                    "(defense|防护).*?(layer|depth)"
+                ]
+            }
+        },
+        "dispatching-parallel-agents": {
+            "type": "domain",
+            "enforcement": "suggest",
+            "priority": "medium",
+            "description": "Use when facing 3+ independent failures that can be investigated concurrently",
+            "promptTriggers": {
+                "keywords": [
+                    "parallel",
+                    "concurrent",
+                    "multiple issues",
+                    "独立问题",
+                    "并行",
+                    "同时处理"
+                ],
+                "intentPatterns": [
+                    "(multiple|several|many).*?(issues|problems|bugs)",
+                    "(parallel|concurrent).*?(investigation|work)",
+                    "(同时|并行).*?(处理|调查)"
+                ]
+            }
+        },
+        "finishing-a-development-branch": {
+            "type": "domain",
+            "enforcement": "suggest",
+            "priority": "medium",
+            "description": "Use when implementation is complete and you need to integrate the work",
+            "promptTriggers": {
+                "keywords": [
+                    "finish branch",
+                    "merge",
+                    "complete",
+                    "done",
+                    "完成",
+                    "合并",
+                    "结束开发"
+                ],
+                "intentPatterns": [
+                    "(finish|complete|done).*?(feature|implement)",
+                    "(merge|合并).*?(branch|PR)",
+                    "(准备|ready).*?(merge|submit)"
+                ]
+            }
+        },
+        "receiving-code-review": {
+            "type": "domain",
+            "enforcement": "suggest",
+            "priority": "medium",
+            "description": "Use when receiving code review feedback, before implementing suggestions",
+            "promptTriggers": {
+                "keywords": [
+                    "code review",
+                    "review feedback",
+                    "review comments",
+                    "代码审查",
+                    "审查意见",
+                    "反馈"
+                ],
+                "intentPatterns": [
+                    "(receive|get).*?(code review|feedback|comments)",
+                    "(respond to|回应).*?(review|feedback)",
+                    "(reviewer|审查者).*?(said|建议)"
+                ]
+            }
+        },
+        "requesting-code-review": {
+            "type": "domain",
+            "enforcement": "suggest",
+            "priority": "medium",
+            "description": "Use when completing tasks, implementing major features, before merging",
+            "promptTriggers": {
+                "keywords": [
+                    "request code review",
+                    "submit for review",
+                    "need review",
+                    "请求审查",
+                    "提交审查"
+                ],
+                "intentPatterns": [
+                    "(request|ask for).*?(code review|review)",
+                    "(submit|提交).*?(for review|PR)",
+                    "(ready for|准备好).*?(review|merge)"
+                ]
+            }
+        },
+        "testing-anti-patterns": {
+            "type": "domain",
+            "enforcement": "suggest",
+            "priority": "medium",
+            "description": "Use when writing or changing tests, adding mocks",
+            "promptTriggers": {
+                "keywords": [
+                    "mock",
+                    "test pattern",
+                    "anti-pattern",
+                    "stub",
+                    "spy",
+                    "模拟对象",
+                    "测试模式"
+                ],
+                "intentPatterns": [
+                    "(add|create|write).*?(mock|test)",
+                    "(testing|测试).*?(pattern|anti-pattern)",
+                    "(avoid|避免).*?(bad|anti-pattern).*?(test|testing)"
+                ]
+            }
+        },
+        "testing-skills-with-subagents": {
+            "type": "domain",
+            "enforcement": "suggest",
+            "priority": "low",
+            "description": "Use when creating or editing skills, before deployment",
+            "promptTriggers": {
+                "keywords": [
+                    "test skill",
+                    "skill testing",
+                    "skill validation",
+                    "测试技能",
+                    "技能验证"
+                ],
+                "intentPatterns": [
+                    "(test|validate).*?(skill|SKILL)",
+                    "(create|edit|modify).*?(skill|SKILL)",
+                    "(测试|验证).*?(技能|skill)"
+                ]
+            }
+        },
+        "sharing-skills": {
+            "type": "domain",
+            "enforcement": "suggest",
+            "priority": "low",
+            "description": "Use when you've developed a broadly useful skill and want to contribute upstream",
+            "promptTriggers": {
+                "keywords": [
+                    "share skill",
+                    "contribute",
+                    "pull request",
+                    "upstream",
+                    "分享技能",
+                    "贡献"
+                ],
+                "intentPatterns": [
+                    "(share|contribute).*?(skill|SKILL)",
+                    "(create PR|pull request).*?(skill)",
+                    "(提交|分享).*?(技能|skill)"
+                ]
+            }
+        },
+        "using-git-worktrees": {
+            "type": "domain",
+            "enforcement": "suggest",
+            "priority": "low",
+            "description": "Use when you need isolated workspaces for different tasks",
+            "promptTriggers": {
+                "keywords": [
+                    "git worktree",
+                    "isolated workspace",
+                    "branch workspace",
+                    "独立工作空间",
+                    "分支工作区"
+                ],
+                "intentPatterns": [
+                    "(create|make|use).*?(worktree|workspace)",
+                    "(isolated|separate).*?(workspace|branch)",
+                    "(创建|使用).*?(工作空间|分支)"
+                ]
+            }
+        },
+        "verification-before-completion": {
+            "type": "domain",
+            "enforcement": "suggest",
+            "priority": "low",
+            "description": "Use before marking tasks complete to verify requirements are met",
+            "promptTriggers": {
+                "keywords": [
+                    "verify",
+                    "validation",
+                    "check completion",
+                    "确认完成",
+                    "验证",
+                    "检查"
+                ],
+                "intentPatterns": [
+                    "(verify|check|confirm).*?(complete|done|finished)",
+                    "(验证|确认).*?(完成|结束)",
+                    "(before|完成前).*?(verify|check)"
+                ]
+            }
+        },
+        "writing-skills": {
+            "type": "domain",
+            "enforcement": "suggest",
+            "priority": "low",
+            "description": "Use when creating new skills or documenting skill processes",
+            "promptTriggers": {
+                "keywords": [
+                    "write skill",
+                    "create skill",
+                    "skill documentation",
+                    "写技能",
+                    "创建技能",
+                    "技能文档"
+                ],
+                "intentPatterns": [
+                    "(write|create|document).*?(skill|SKILL)",
+                    "(how to|如何).*?(write|create).*?(skill)",
+                    "(编写|创建|写).*?(技能|skill)"
+                ]
+            }
+        }
+    },
+    "notes": {
+        "enforcement_types": {
+            "suggest": "Skill suggestion appears but doesn't block execution",
+            "block": "Requires skill to be used before proceeding (guardrail)",
+            "warn": "Shows warning but allows proceeding"
+        },
+        "priority_levels": {
+            "critical": "Highest - Always trigger when matched",
+            "high": "Important - Trigger for most matches",
+            "medium": "Moderate - Trigger for clear matches",
+            "low": "Optional - Trigger only for explicit matches"
+        },
+        "customization": {
+            "pathPatterns": "Adjust to match your project structure (blog-api, auth-service, etc.)",
+            "keywords": "Add domain-specific terms relevant to your project",
+            "intentPatterns": "Use regex for flexible user intent matching"
+        }
+    }
+}

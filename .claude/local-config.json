@@ -1,0 +1,9 @@
+{
+  "features": {
+    "sub_agents": true
+  },
+  "agents": [
+    { "name": "Architect", "role": "项目结构优化" },
+    { "name": "CodeDoctor", "role": "代码质量修复" }
+  ]
+}

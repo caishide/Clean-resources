@@ -133,12 +133,18 @@ class AdminController extends Controller
         return view('admin.dashboard', compact('pageTitle', 'widget', 'chart','deposit','withdrawals','bv'));
     }
 
-    public function depositAndWithdrawReport(Request $request) {
-
+    /**
+     * 生成存款和提款报表
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function depositAndWithdrawReport(Request $request): JsonResponse
+    {
         $diffInDays = Carbon::parse($request->start_date)->diffInDays(Carbon::parse($request->end_date));
 
-        $groupBy = $diffInDays > 30 ? 'months' : 'days';
-        $format = $diffInDays > 30 ? '%M-%Y'  : '%d-%M-%Y';
+        $groupBy = $diffInDays > self::REPORT_GROUP_THRESHOLD_DAYS ? 'months' : 'days';
+        $format = $diffInDays > self::REPORT_GROUP_THRESHOLD_DAYS ? '%M-%Y' : '%d-%M-%Y';
 
         if ($groupBy == 'days') {
             $dates = $this->getAllDates($request->start_date, $request->end_date);
@@ -205,12 +211,18 @@ class AdminController extends Controller
         return response()->json($report);
     }
 
-    public function transactionReport(Request $request) {
-
+    /**
+     * 生成交易报表
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function transactionReport(Request $request): JsonResponse
+    {
         $diffInDays = Carbon::parse($request->start_date)->diffInDays(Carbon::parse($request->end_date));
 
-        $groupBy = $diffInDays > 30 ? 'months' : 'days';
-        $format = $diffInDays > 30 ? '%M-%Y'  : '%d-%M-%Y';
+        $groupBy = $diffInDays > self::REPORT_GROUP_THRESHOLD_DAYS ? 'months' : 'days';
+        $format = $diffInDays > self::REPORT_GROUP_THRESHOLD_DAYS ? '%M-%Y' : '%d-%M-%Y';
 
         if ($groupBy == 'days') {
             $dates = $this->getAllDates($request->start_date, $request->end_date);
@@ -218,7 +230,7 @@ class AdminController extends Controller
             $dates = $this->getAllMonths($request->start_date, $request->end_date);
         }
 
-        $plusTransactions   = Transaction::where('trx_type','+')
+        $plusTransactions = Transaction::where('trx_type', self::TRX_TYPE_PLUS)
             ->whereDate('created_at', '>=', $request->start_date)
             ->whereDate('created_at', '<=', $request->end_date)
             ->selectRaw('SUM(amount) AS amount')
@@ -227,7 +239,7 @@ class AdminController extends Controller
             ->groupBy('created_on')
             ->get();
 
-        $minusTransactions  = Transaction::where('trx_type','-')
+        $minusTransactions = Transaction::where('trx_type', self::TRX_TYPE_MINUS)
             ->whereDate('created_at', '>=', $request->start_date)
             ->whereDate('created_at', '<=', $request->end_date)
             ->selectRaw('SUM(amount) AS amount')
@@ -265,8 +277,15 @@ class AdminController extends Controller
         return response()->json($report);
     }
 
-
-    private function getAllDates($startDate, $endDate) {
+    /**
+     * 获取日期范围内的所有日期
+     *
+     * @param string $startDate
+     * @param string $endDate
+     * @return array
+     */
+    private function getAllDates(string $startDate, string $endDate): array
+    {
         $dates = [];
         $currentDate = new \DateTime($startDate);
         $endDate = new \DateTime($endDate);
@@ -279,7 +298,15 @@ class AdminController extends Controller
         return $dates;
     }
 
-    private function  getAllMonths($startDate, $endDate) {
+    /**
+     * 获取日期范围内的所有月份
+     *
+     * @param string $startDate
+     * @param string $endDate
+     * @return array
+     */
+    private function getAllMonths(string $startDate, string $endDate): array
+    {
         if ($endDate > now()) {
             $endDate = now()->format('Y-m-d');
         }
@@ -297,15 +324,25 @@ class AdminController extends Controller
         return $months;
     }
 
-
-    public function profile()
+    /**
+     * 显示管理员个人资料页面
+     *
+     * @return View
+     */
+    public function profile(): View
     {
         $pageTitle = 'Profile';
         $admin = auth('admin')->user();
         return view('admin.profile', compact('pageTitle', 'admin'));
     }
 
-    public function profileUpdate(Request $request)
+    /**
+     * 更新管理员个人资料
+     *
+     * @param Request $request
+     * @return RedirectResponse
+     */
+    public function profileUpdate(Request $request): RedirectResponse
     {
         $request->validate([
             'name' => 'required',
@@ -331,14 +368,25 @@ class AdminController extends Controller
         return to_route('admin.profile')->withNotify($notify);
     }
 
-    public function password()
+    /**
+     * 显示密码设置页面
+     *
+     * @return View
+     */
+    public function password(): View
     {
         $pageTitle = 'Password Setting';
         $admin = auth('admin')->user();
         return view('admin.password', compact('pageTitle', 'admin'));
     }
 
-    public function passwordUpdate(Request $request)
+    /**
+     * 更新管理员密码
+     *
+     * @param Request $request
+     * @return RedirectResponse
+     */
+    public function passwordUpdate(Request $request): RedirectResponse
     {
         // Strong password requirement for admins - minimum 10 characters with complexity
         $request->validate([
@@ -365,7 +413,13 @@ class AdminController extends Controller
         return to_route('admin.password')->withNotify($notify);
     }
 
-    public function notifications(){
+    /**
+     * 显示通知列表
+     *
+     * @return View
+     */
+    public function notifications(): View
+    {
         $notifications = AdminNotification::orderBy('id','desc')->with('user')->paginate(getPaginate());
         $hasUnread = AdminNotification::where('is_read',Status::NO)->exists();
         $hasNotification = AdminNotification::exists();
@@ -373,8 +427,14 @@ class AdminController extends Controller
         return view('admin.notifications',compact('pageTitle','notifications','hasUnread','hasNotification'));
     }
 
-
-    public function notificationRead($id){
+    /**
+     * 标记单个通知为已读
+     *
+     * @param int $id
+     * @return RedirectResponse
+     */
+    public function notificationRead(int $id): RedirectResponse
+    {
         $notification = AdminNotification::findOrFail($id);
         $notification->is_read = Status::YES;
         $notification->save();
@@ -385,7 +445,12 @@ class AdminController extends Controller
         return redirect($url);
     }
 
-    public function requestReport()
+    /**
+     * 显示请求报告页面
+     *
+     * @return View|RedirectResponse
+     */
+    public function requestReport(): View|RedirectResponse
     {
         $pageTitle = 'Your Listed Report & Request';
         $arr['app_name'] = systemDetails()['name'];
@@ -404,7 +469,13 @@ class AdminController extends Controller
         return view('admin.reports',compact('reports','pageTitle'));
     }
 
-    public function reportSubmit(Request $request)
+    /**
+     * 提交报告请求
+     *
+     * @param Request $request
+     * @return RedirectResponse
+     */
+    public function reportSubmit(Request $request): RedirectResponse
     {
         $request->validate([
             'type'=>'required|in:bug,feature',
@@ -429,7 +500,13 @@ class AdminController extends Controller
         return back()->withNotify($notify);
     }
 
-    public function readAllNotification(){
+    /**
+     * 标记所有通知为已读
+     *
+     * @return RedirectResponse
+     */
+    public function readAllNotification(): RedirectResponse
+    {
         AdminNotification::where('is_read',Status::NO)->update([
             'is_read'=>Status::YES
         ]);
@@ -437,19 +514,38 @@ class AdminController extends Controller
         return back()->withNotify($notify);
     }
 
-    public function deleteAllNotification(){
+    /**
+     * 删除所有通知
+     *
+     * @return RedirectResponse
+     */
+    public function deleteAllNotification(): RedirectResponse
+    {
         AdminNotification::truncate();
         $notify[] = ['success','Notifications deleted successfully'];
         return back()->withNotify($notify);
     }
 
-    public function deleteSingleNotification($id){
+    /**
+     * 删除单个通知
+     *
+     * @param int $id
+     * @return RedirectResponse
+     */
+    public function deleteSingleNotification(int $id): RedirectResponse
+    {
         AdminNotification::where('id',$id)->delete();
         $notify[] = ['success','Notification deleted successfully'];
         return back()->withNotify($notify);
     }
 
-    public function downloadAttachment($fileHash)
+    /**
+     * 下载附件文件
+     *
+     * @param string $fileHash
+     * @return RedirectResponse|BinaryFileResponse
+     */
+    public function downloadAttachment(string $fileHash): RedirectResponse|BinaryFileResponse
     {
         try {
             $filePath = decrypt($fileHash);

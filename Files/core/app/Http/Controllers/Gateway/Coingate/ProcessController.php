@@ -9,6 +9,8 @@ use CoinGate\Client;
 use CoinGate\Merchant\Order;
 use App\Http\Controllers\Gateway\PaymentController;
 use App\Lib\CurlRequest;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class ProcessController extends Controller
 {
@@ -54,16 +56,47 @@ class ProcessController extends Controller
         return json_encode($send);
     }
 
-    public function ipn()
+    public function ipn(Request $request)
     {
-        $ip = $_SERVER['REMOTE_ADDR'];
+        // Validate and sanitize input
+        $validated = $request->validate([
+            'token' => 'required|string',
+            'status' => 'required|string',
+            'price_amount' => 'required|numeric',
+        ]);
+
+        Log::channel('gateway')->info('Coingate IPN received', [
+            'token' => $validated['token'],
+            'status' => $validated['status'],
+            'amount' => $validated['price_amount'],
+            'ip' => $request->ip(),
+        ]);
+
+        $ip = $request->ip();
         $url = 'https://api.coingate.com/v2/ips-v4';
         $response = CurlRequest::curlContent($url);
         if (strpos($response, $ip) !== false) {
-            $deposit = Deposit::where('trx', $_POST['token'])->orderBy('id', 'DESC')->first();
-            if ($_POST['status'] == 'paid' && $_POST['price_amount'] == $deposit->final_amount && $deposit->status == Status::PAYMENT_INITIATE) {
-                PaymentController::userDataUpdate($deposit);
+            $deposit = Deposit::where('trx', $validated['token'])->orderBy('id', 'DESC')->first();
+            if (!$deposit) {
+                Log::channel('gateway')->error('Coingate IPN: Deposit not found', ['token' => $validated['token']]);
+                abort(404);
             }
+
+            if ($validated['status'] == 'paid' && $validated['price_amount'] == $deposit->final_amount && $deposit->status == Status::PAYMENT_INITIATE) {
+                Log::channel('gateway')->info('Coingate IPN: Payment successful', ['token' => $validated['token']]);
+                PaymentController::userDataUpdate($deposit);
+            } else {
+                Log::channel('gateway')->warning('Coingate IPN: Payment validation failed', [
+                    'token' => $validated['token'],
+                    'expected_status' => 'paid',
+                    'received_status' => $validated['status'],
+                    'expected_amount' => $deposit->final_amount,
+                    'received_amount' => $validated['price_amount'],
+                    'deposit_status' => $deposit->status
+                ]);
+            }
+        } else {
+            Log::channel('gateway')->error('Coingate IPN: IP not whitelisted', ['ip' => $ip]);
         }
     }
 }

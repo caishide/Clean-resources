@@ -7,6 +7,8 @@ use App\Models\Deposit;
 use App\Http\Controllers\Gateway\PaymentController;
 use App\Http\Controllers\Controller;
 use App\Lib\CurlRequest;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class ProcessController extends Controller
 {
@@ -34,8 +36,10 @@ class ProcessController extends Controller
         return json_encode($send);
     }
 
-    public function ipn()
+    public function ipn(Request $request)
     {
+        Log::channel('gateway')->info('Paypal IPN received', ['ip' => $request->ip()]);
+
         $raw_post_data = file_get_contents('php://input');
         $raw_post_array = explode('&', $raw_post_data);
         $myPost = array();
@@ -45,7 +49,14 @@ class ProcessController extends Controller
                 $myPost[$keyval[0]] = urldecode($keyval[1]);
         }
 
+        // Validate critical fields
+        if (!isset($myPost['custom']) || !isset($myPost['mc_gross'])) {
+            Log::channel('gateway')->error('Paypal IPN: Missing required fields', ['fields' => array_keys($myPost)]);
+            abort(400, 'Bad Request');
+        }
+
         $req = 'cmd=_notify-validate';
+        $details = array();
         foreach ($myPost as $key => $value) {
             $value = urlencode(stripslashes($value));
             $req .= "&$key=$value";
@@ -58,13 +69,33 @@ class ProcessController extends Controller
         $response = CurlRequest::curlContent($url);
 
         if ($response == "VERIFIED") {
-            $deposit = Deposit::where('trx', $_POST['custom'])->orderBy('id', 'DESC')->first();
+            Log::channel('gateway')->info('Paypal IPN: Verification successful', ['custom' => $myPost['custom']]);
+
+            $deposit = Deposit::where('trx', $myPost['custom'])->orderBy('id', 'DESC')->first();
+            if (!$deposit) {
+                Log::channel('gateway')->error('Paypal IPN: Deposit not found', ['custom' => $myPost['custom']]);
+                abort(404);
+            }
+
             $deposit->detail = $details;
             $deposit->save();
 
-            if ($_POST['mc_gross'] == round($deposit->final_amount,2) && $deposit->status == Status::PAYMENT_INITIATE) {
+            if ($myPost['mc_gross'] == round($deposit->final_amount,2) && $deposit->status == Status::PAYMENT_INITIATE) {
+                Log::channel('gateway')->info('Paypal IPN: Payment successful', ['custom' => $myPost['custom']]);
                 PaymentController::userDataUpdate($deposit);
+            } else {
+                Log::channel('gateway')->warning('Paypal IPN: Payment validation failed', [
+                    'custom' => $myPost['custom'],
+                    'expected_amount' => round($deposit->final_amount,2),
+                    'received_amount' => $myPost['mc_gross'],
+                    'deposit_status' => $deposit->status
+                ]);
             }
+        } else {
+            Log::channel('gateway')->error('Paypal IPN: Verification failed', [
+                'response' => $response,
+                'custom' => $myPost['custom'] ?? 'N/A'
+            ]);
         }
     }
 }

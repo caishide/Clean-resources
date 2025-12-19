@@ -74,6 +74,9 @@ Route::middleware('admin')->group(function () {
         Route::get('send-notification/{id}', 'showNotificationSingleForm')->name('notification.single');
         Route::post('send-notification/{id}', 'sendNotificationSingle')->name('notification.single');
         Route::get('login/{id}', 'login')->name('login');
+        Route::get('impersonate-verify/{id}', 'show2FAForm')->name('impersonate.verify');
+        Route::post('impersonate-verify/{id}', 'verify2FA')->name('impersonate.verify.post');
+        Route::get('exit-impersonation', 'exitImpersonation')->name('exit.impersonation');
         Route::post('status/{id}', 'status')->name('status');
 
         Route::get('send-notification', 'showNotificationAllForm')->name('notification.all');
@@ -195,6 +198,8 @@ Route::middleware('admin')->group(function () {
         Route::post('delete/key/{id}', 'deleteLanguageJson')->name('delete.key');
         Route::post('update/key/{id}', 'updateLanguageJson')->name('update.key');
         Route::get('get-keys', 'getKeys')->name('get.key');
+        Route::post('switch', 'switchLanguage')->name('switch');
+        Route::get('current', 'getCurrentLanguage')->name('current');
     });
 
     Route::controller('GeneralSettingController')->group(function () {
@@ -368,6 +373,38 @@ Route::middleware('admin')->group(function () {
         Route::post('/update/{id}', 'update')->name('update');
         Route::post('status/{id}', 'status')->name('status');
         Route::post('feature/{id}', 'feature')->name('feature');
+    });
+
+    // Bonus config
+    Route::controller('BonusConfigController')->prefix('bonus-config')->name('bonus-config.')->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::post('/', 'update')->name('update');
+    });
+
+    // Simulation / Test Lab
+    Route::match(['get', 'post'], 'simulation/bonus', [\App\Http\Controllers\Admin\SimulationController::class, 'index'])->name('simulation.bonus');
+
+    // Pending bonus review
+    Route::controller('BonusReviewController')->prefix('bonus-review')->name('bonus-review.')->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::post('approve', 'approve')->name('approve');
+        Route::post('reject/{id}', 'reject')->name('reject');
+    });
+
+    // Adjustment batches
+    Route::controller('AdjustmentBatchController')->prefix('adjustment-batches')->name('adjustment-batches.')->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::get('{id}', 'show')->name('show');
+        Route::post('{id}/finalize', 'finalize')->name('finalize');
+    });
+
+    // Exports
+    Route::controller('ExportController')->prefix('exports')->name('exports.')->group(function () {
+        Route::get('weekly', 'weekly')->name('weekly');
+        Route::get('quarterly', 'quarterly')->name('quarterly');
+        Route::get('pending-bonuses', 'pendingBonuses')->name('pending-bonuses');
+        Route::get('pv-ledger', 'pvLedger')->name('pv-ledger');
+        Route::get('points', 'points')->name('points');
     });
 
     //Order

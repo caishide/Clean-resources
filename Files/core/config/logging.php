@@ -127,6 +127,24 @@ return [
             'path' => storage_path('logs/laravel.log'),
         ],
 
+        'security' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/security.log'),
+            'level' => 'info',
+            'days' => env('LOG_SECURITY_DAYS', 30),
+            'permission' => 0666,
+            'replace_placeholders' => true,
+        ],
+
+        'gateway' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/gateway.log'),
+            'level' => 'info',
+            'days' => env('LOG_GATEWAY_DAYS', 30),
+            'permission' => 0666,
+            'replace_placeholders' => true,
+        ],
+
     ],
 
 ];

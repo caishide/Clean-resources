@@ -8,4 +8,16 @@ use Illuminate\Database\Eloquent\Model;
 class UserExtra extends Model
 {
     use HasFactory;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var array<int, string>
+     */
+    protected $fillable = [
+        'user_id',
+        'bv_left',
+        'bv_right',
+        'points',
+    ];
 }

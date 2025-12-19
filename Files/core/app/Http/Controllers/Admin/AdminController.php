@@ -13,28 +13,71 @@ use App\Models\UserLogin;
 use App\Models\Withdrawal;
 use App\Models\Transaction;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use App\Rules\FileTypeValidate;
 use App\Models\AdminNotification;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Hash;
-use Psy\Readline\Transient;
+use Illuminate\Support\Facades\Log;
 
+/**
+ * AdminController - 管理员控制器
+ *
+ * 处理管理员仪表盘、个人资料、密码管理和通知功能
+ */
 class AdminController extends Controller
 {
+    /** @var int 报表分组阈值(天数) */
+    private const REPORT_GROUP_THRESHOLD_DAYS = 30;
 
-    public function dashboard()
+    /** @var int 用户登录数据天数 */
+    private const USER_LOGIN_DAYS = 30;
+
+    /** @var int 国家统计显示数量 */
+    private const COUNTRY_DISPLAY_COUNT = 5;
+
+    /** @var int 最近投资天数 */
+    private const RECENT_INVEST_DAYS = 6;
+
+    /** @var string BV减少类型 */
+    private const BV_TRX_TYPE_MINUS = '-';
+
+    /** @var string 交易增加类型 */
+    private const TRX_TYPE_PLUS = '+';
+
+    /** @var string 交易减少类型 */
+    private const TRX_TYPE_MINUS = '-';
+
+    /**
+     * 显示管理员仪表盘
+     *
+     * @return View
+     */
+    public function dashboard(): View
     {
         $pageTitle = 'Dashboard';
 
-        // User Info
-        $widget['total_users']             = User::count();
-        $widget['verified_users']          = User::active()->count();
-        $widget['email_unverified_users']  = User::emailUnverified()->count();
-        $widget['mobile_unverified_users'] = User::mobileUnverified()->count();
+        // Optimize user statistics with a single aggregated query
+        $userStats = User::selectRaw('
+            COUNT(*) as total_users,
+            SUM(CASE WHEN status = ? AND ev = ? AND sv = ? THEN 1 ELSE 0 END) as verified_users,
+            SUM(CASE WHEN ev = ? THEN 1 ELSE 0 END) as email_unverified_users,
+            SUM(CASE WHEN sv = ? THEN 1 ELSE 0 END) as mobile_unverified_users
+        ', [
+            Status::USER_ACTIVE, Status::VERIFIED, Status::VERIFIED,
+            Status::UNVERIFIED, Status::UNVERIFIED
+        ])->first();
 
+        $widget['total_users'] = $userStats->total_users;
+        $widget['verified_users'] = $userStats->verified_users;
+        $widget['email_unverified_users'] = $userStats->email_unverified_users;
+        $widget['mobile_unverified_users'] = $userStats->mobile_unverified_users;
 
-        // user Browsing, Country, Operating Log
-        $userLoginData = UserLogin::where('created_at', '>=', Carbon::now()->subDays(30))->get(['browser', 'os', 'country']);
+        // user Browsing, Country, Operating Log - optimized to use single query
+        $userLoginData = UserLogin::where('created_at', '>=', Carbon::now()->subDays(self::USER_LOGIN_DAYS))->get(['browser', 'os', 'country']);
 
         $chart['user_browser_counter'] = $userLoginData->groupBy('browser')->map(function ($item, $key) {
             return collect($item)->count();
@@ -44,25 +87,46 @@ class AdminController extends Controller
         });
         $chart['user_country_counter'] = $userLoginData->groupBy('country')->map(function ($item, $key) {
             return collect($item)->count();
-        })->sort()->reverse()->take(5);
+        })->sort()->reverse()->take(self::COUNTRY_DISPLAY_COUNT);
 
+        // Optimize deposit statistics with aggregated queries
+        $depositStats = Deposit::selectRaw('
+            SUM(CASE WHEN status = ? THEN amount ELSE 0 END) as total_deposit_amount,
+            COUNT(CASE WHEN status = ? THEN 1 END) as total_deposit_pending,
+            COUNT(CASE WHEN status = ? THEN 1 END) as total_deposit_rejected,
+            SUM(CASE WHEN status = ? THEN charge ELSE 0 END) as total_deposit_charge
+        ', [
+            Status::PAYMENT_SUCCESS, Status::PAYMENT_PENDING, Status::PAYMENT_REJECT, Status::PAYMENT_SUCCESS
+        ])->first();
 
-        $deposit['total_deposit_amount']        = Deposit::successful()->sum('amount');
-        $deposit['total_deposit_pending']       = Deposit::pending()->count();
-        $deposit['total_deposit_rejected']      = Deposit::rejected()->count();
-        $deposit['total_deposit_charge']        = Deposit::successful()->sum('charge');
+        $deposit['total_deposit_amount'] = $depositStats->total_deposit_amount;
+        $deposit['total_deposit_pending'] = $depositStats->total_deposit_pending;
+        $deposit['total_deposit_rejected'] = $depositStats->total_deposit_rejected;
+        $deposit['total_deposit_charge'] = $depositStats->total_deposit_charge;
 
-        $withdrawals['total_withdraw_amount']   = Withdrawal::approved()->sum('amount');
-        $withdrawals['total_withdraw_pending']  = Withdrawal::pending()->count();
-        $withdrawals['total_withdraw_rejected'] = Withdrawal::rejected()->count();
-        $withdrawals['total_withdraw_charge']   = Withdrawal::approved()->sum('charge');
+        // Optimize withdrawal statistics with aggregated queries
+        $withdrawStats = Withdrawal::selectRaw('
+            SUM(CASE WHEN status = ? THEN amount ELSE 0 END) as total_withdraw_amount,
+            COUNT(CASE WHEN status = ? THEN 1 END) as total_withdraw_pending,
+            COUNT(CASE WHEN status = ? THEN 1 END) as total_withdraw_rejected,
+            SUM(CASE WHEN status = ? THEN charge ELSE 0 END) as total_withdraw_charge
+        ', [
+            Status::PAYMENT_SUCCESS, Status::PAYMENT_PENDING, Status::PAYMENT_REJECT, Status::PAYMENT_SUCCESS
+        ])->first();
 
+        $withdrawals['total_withdraw_amount'] = $withdrawStats->total_withdraw_amount;
+        $withdrawals['total_withdraw_pending'] = $withdrawStats->total_withdraw_pending;
+        $withdrawals['total_withdraw_rejected'] = $withdrawStats->total_withdraw_rejected;
+        $withdrawals['total_withdraw_charge'] = $withdrawStats->total_withdraw_charge;
+
+        // BV statistics - these remain separate as they aggregate different fields
         $bv['bvLeft'] = UserExtra::sum('bv_left');
         $bv['bvRight'] = UserExtra::sum('bv_right');
-        $bv['totalBvCut'] = BvLog::where('trx_type', '-')->sum('amount');
+        $bv['totalBvCut'] = BvLog::where('trx_type', self::BV_TRX_TYPE_MINUS)->sum('amount');
 
+        // Investment and commission statistics
         $widget['users_invest'] = User::sum('total_invest');
-        $widget['last7days_invest'] = Transaction::whereDate('created_at', '>=', Carbon::now()->subDays(6))->where('remark', 'purchased_plan')->sum('amount');
+        $widget['last7days_invest'] = Transaction::whereDate('created_at', '>=', Carbon::now()->subDays(self::RECENT_INVEST_DAYS))->where('remark', 'purchased_plan')->sum('amount');
         $widget['total_ref_com'] = Transaction::where('remark', 'referral_commission')->sum('amount');
         $widget['total_binary_com'] = Transaction::where('remark', 'binary_commission')->sum('amount');
 
@@ -276,9 +340,18 @@ class AdminController extends Controller
 
     public function passwordUpdate(Request $request)
     {
+        // Strong password requirement for admins - minimum 10 characters with complexity
         $request->validate([
             'old_password' => 'required',
-            'password' => 'required|min:5|confirmed',
+            'password' => [
+                'required',
+                'confirmed',
+                'min:10',
+                'regex:/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]+$/'
+            ],
+        ], [
+            'password.min' => 'Admin password must be at least 10 characters',
+            'password.regex' => 'Admin password must contain at least one uppercase letter, one lowercase letter, one number, and one special character (!@#$%^&*)'
         ]);
 
         $user = auth('admin')->user();
@@ -322,7 +395,7 @@ class AdminController extends Controller
         $response = CurlRequest::curlContent($url);
         $response = json_decode($response);
         if (!$response || !@$response->status || !@$response->message) {
-            return to_route('admin.dashboard')->withErrors('Something went wrong');
+            return to_route('admin.dashboard')->withErrors(__('admin.error.something_wrong'));
         }
         if ($response->status == 'error') {
             return to_route('admin.dashboard')->withErrors($response->message);
@@ -347,7 +420,7 @@ class AdminController extends Controller
         $response = CurlRequest::curlPostContent($url,$arr);
         $response = json_decode($response);
         if (!$response || !@$response->status || !@$response->message) {
-            return to_route('admin.dashboard')->withErrors('Something went wrong');
+            return to_route('admin.dashboard')->withErrors(__('admin.error.something_wrong'));
         }
         if ($response->status == 'error') {
             return back()->withErrors($response->message);
@@ -378,18 +451,57 @@ class AdminController extends Controller
 
     public function downloadAttachment($fileHash)
     {
-        $filePath = decrypt($fileHash);
-        $extension = pathinfo($filePath, PATHINFO_EXTENSION);
-        $title = slug(gs('site_name')).'- attachments.'.$extension;
         try {
-            $mimetype = mime_content_type($filePath);
+            $filePath = decrypt($fileHash);
+
+            // Resolve the real path to prevent path traversal
+            $realPath = realpath($filePath);
+            $allowedPath = realpath(storage_path('app/attachments'));
+
+            // Validate that the path is within the allowed directory
+            if (!$realPath || !$allowedPath || !str_starts_with($realPath, $allowedPath)) {
+                Log::channel('security')->warning('Path traversal attempt in downloadAttachment', [
+                    'attempted_path' => $filePath,
+                    'real_path' => $realPath,
+                    'user_id' => auth()->id(),
+                    'ip' => request()->ip()
+                ]);
+                $notify[] = ['error','Invalid file path'];
+                return back()->withNotify($notify);
+            }
+
+            // Verify file exists
+            if (!file_exists($realPath)) {
+                Log::channel('security')->warning('File not found in downloadAttachment', [
+                    'file_path' => $realPath,
+                    'user_id' => auth()->id()
+                ]);
+                $notify[] = ['error','File does not exist'];
+                return back()->withNotify($notify);
+            }
+
+            $extension = pathinfo($realPath, PATHINFO_EXTENSION);
+            $title = slug(gs('site_name')).'- attachments.'.$extension;
+
+            $mimetype = mime_content_type($realPath);
+
+            Log::channel('security')->info('File downloaded successfully', [
+                'file_path' => $realPath,
+                'user_id' => auth()->id(),
+                'ip' => request()->ip()
+            ]);
+
+            return response()->download($realPath, $title, ['Content-Type' => $mimetype]);
+
         } catch (\Exception $e) {
-            $notify[] = ['error','File does not exists'];
+            Log::channel('security')->error('Error in downloadAttachment', [
+                'error' => $e->getMessage(),
+                'file_hash' => $fileHash,
+                'user_id' => auth()->id()
+            ]);
+            $notify[] = ['error','File does not exist'];
             return back()->withNotify($notify);
         }
-        header('Content-Disposition: attachment; filename="' . $title);
-        header("Content-Type: " . $mimetype);
-        return readfile($filePath);
     }
 
 

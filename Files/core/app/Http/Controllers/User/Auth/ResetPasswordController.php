@@ -57,14 +57,30 @@ class ResetPasswordController extends Controller
 
     protected function rules()
     {
-        $passwordValidation = Password::min(6);
-        if (gs('secure_password')) {
-            $passwordValidation = $passwordValidation->mixedCase()->numbers()->symbols()->uncompromised();
-        }
+        // Strong password requirement - minimum 8 characters with complexity
+        $passwordValidation = Password::min(8)
+            ->letters()
+            ->mixedCase()
+            ->numbers()
+            ->symbols()
+            ->uncompromised();
+
         return [
             'token' => 'required',
             'email' => 'required|email',
             'password' => ['required','confirmed',$passwordValidation],
+        ];
+    }
+
+    protected function validationErrorMessages()
+    {
+        return [
+            'password.min' => 'Password must be at least 8 characters',
+            'password.letters' => 'Password must contain at least one letter',
+            'password.mixed_case' => 'Password must contain both uppercase and lowercase letters',
+            'password.numbers' => 'Password must contain at least one number',
+            'password.symbols' => 'Password must contain at least one special character (!@#$%^&*)',
+            'password.uncompromised' => 'This password has been compromised in a data breach. Please choose a different password'
         ];
     }
 

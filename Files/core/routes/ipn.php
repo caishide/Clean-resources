@@ -2,7 +2,9 @@
 
 use Illuminate\Support\Facades\Route;
 
-Route::post('paypal', 'Paypal\ProcessController@ipn')->name('Paypal');
+// Apply rate limiting to all IPN routes to prevent DoS attacks
+Route::middleware(['throttle:60,1'])->group(function () {
+    Route::post('paypal', 'Paypal\ProcessController@ipn')->name('Paypal');
 Route::get('paypal-sdk', 'PaypalSdk\ProcessController@ipn')->name('PaypalSdk');
 Route::post('perfect-money', 'PerfectMoney\ProcessController@ipn')->name('PerfectMoney');
 Route::post('stripe', 'Stripe\ProcessController@ipn')->name('Stripe');
@@ -33,3 +35,4 @@ Route::any('checkout', 'Checkout\ProcessController@ipn')->name('Checkout');
 Route::post('sslcommerz', 'SslCommerz\ProcessController@ipn')->name('SslCommerz');
 Route::post('aamarpay', 'Aamarpay\ProcessController@ipn')->name('Aamarpay');
 Route::get('binance', 'Binance\ProcessController@ipn')->name('Binance');
+});

@@ -3,19 +3,19 @@
 @section('panel')
     <div class="row gy-4">
         <div class="col-xxl-3 col-sm-6">
-            <x-widget value="{{ $widget['total_users'] }}" title="Total Users" style="6" link="{{ route('admin.users.all') }}" icon="las la-users"
+            <x-widget value="{{ $widget['total_users'] }}" title="{{ __('Total Users') }}" style="6" link="{{ route('admin.users.all') }}" icon="las la-users"
                 bg="primary" outline=false />
         </div>
         <div class="col-xxl-3 col-sm-6">
-            <x-widget value="{{ $widget['verified_users'] }}" title="Active Users" style="6" link="{{ route('admin.users.active') }}"
+            <x-widget value="{{ $widget['verified_users'] }}" title="{{ __('Active Users') }}" style="6" link="{{ route('admin.users.active') }}"
                 icon="las la-user-check" bg="success" outline=false />
         </div>
         <div class="col-xxl-3 col-sm-6">
-            <x-widget value="{{ $widget['email_unverified_users'] }}" title="Email Unverified Users" style="6"
+            <x-widget value="{{ $widget['email_unverified_users'] }}" title="{{ __('Email Unverified Users') }}" style="6"
                 link="{{ route('admin.users.email.unverified') }}" icon="lar la-envelope" bg="danger" outline=false />
         </div>
         <div class="col-xxl-3 col-sm-6">
-            <x-widget value="{{ $widget['mobile_unverified_users'] }}" title="Mobile Unverified Users" style="6"
+            <x-widget value="{{ $widget['mobile_unverified_users'] }}" title="{{ __('Mobile Unverified Users') }}" style="6"
                 link="{{ route('admin.users.mobile.unverified') }}" icon="las la-comment-slash" bg="warning" outline=false />
         </div>
     </div><!-- row end-->
@@ -172,39 +172,39 @@
 
     <div class="row gy-4 mt-2">
         <div class="col-xxl-3 col-sm-6">
-            <x-widget value="{{ showAmount($widget['users_invest']) }}" title="Total Invest" style="6"
+            <x-widget value="{{ showAmount($widget['users_invest']) }}" title="{{ __('Total Invest') }}" style="6"
                 link="{{ route('admin.report.invest') }}" icon="fa fa-money-bill-wave-alt" bg="14" outline="true" />
         </div><!-- dashboard-w1 end -->
         <div class="col-xxl-3 col-sm-6">
-            <x-widget value="{{ showAmount($widget['last7days_invest']) }}" title="Last 7 Days Invest" style="6"
+            <x-widget value="{{ showAmount($widget['last7days_invest']) }}" title="{{ __('Last 7 Days Invest') }}" style="6"
                 link="{{ route('admin.report.invest') }}?date={{ now()->subDays(7)->format('Y/m/d') }} - {{ now()->format('Y/m/d') }}"
                 icon="fa fa-money-bill-wave-alt" bg="10" outline="true" />
         </div><!-- dashboard-w1 end -->
         <div class="col-xxl-3 col-sm-6">
-            <x-widget value="{{ showAmount($widget['total_ref_com']) }}" title="Total Referral Commission" style="6"
+            <x-widget value="{{ showAmount($widget['total_ref_com']) }}" title="{{ __('Total Referral Commission') }}" style="6"
                 link="{{ route('admin.report.referral.commission') }}" icon="fas la-hand-holding-usd" bg="9" outline="true" />
         </div>
         <div class="col-xxl-3 col-sm-6">
-            <x-widget value="{{ showAmount($widget['total_binary_com']) }}" title="Total Binary Commission" style="6"
+            <x-widget value="{{ showAmount($widget['total_binary_com']) }}" title="{{ __('Total Binary Commission') }}" style="6"
                 link="{{ route('admin.report.binary.commission') }}" icon="fas la-tree" bg="7" outline="true" />
         </div>
     </div><!-- row end-->
 
     <div class="row gy-4 mt-2">
         <div class="col-xxl-3 col-sm-6">
-            <x-widget value="{{ getAmount($bv['totalBvCut']) }}" title="Users Total Bv Cut" style="7"
+            <x-widget value="{{ getAmount($bv['totalBvCut']) }}" title="{{ __('Users Total Bv Cut') }}" style="7"
                 link="{{ route('admin.report.bvLog') }}?type=cutBV" icon="fas la-cut" bg="1" />
         </div><!-- dashboard-w1 end -->
         <div class="col-xxl-3 col-sm-6">
-            <x-widget value="{{ getAmount($bv['bvLeft'] + $bv['bvRight']) }}" title="Users Total BV" style="7"
+            <x-widget value="{{ getAmount($bv['bvLeft'] + $bv['bvRight']) }}" title="{{ __('Users Total BV') }}" style="7"
                 link="{{ route('admin.report.bvLog') }}?type=paidBV" icon="fas la-cart-arrow-down" bg="2" />
         </div><!-- dashboard-w1 end -->
         <div class="col-xxl-3 col-sm-6">
-            <x-widget value="{{ getAmount($bv['bvLeft']) }}" title="Users Left BV" style="7"
+            <x-widget value="{{ getAmount($bv['bvLeft']) }}" title="{{ __("Users Left BV") }}" style="7"
                 link="{{ route('admin.report.bvLog') }}?type=leftBV" icon="fas la-arrow-alt-circle-left" bg="3" />
         </div><!-- dashboard-w1 end -->
         <div class="col-xxl-3 col-sm-6">
-            <x-widget value="{{ getAmount($bv['bvRight']) }}" title="Right BV" style="7" link="{{ route('admin.report.bvLog') }}?type=rightBV"
+            <x-widget value="{{ getAmount($bv['bvRight']) }}" title="{{ __('Right BV') }}" style="7" link="{{ route('admin.report.bvLog') }}?type=rightBV"
                 icon="las la-arrow-alt-circle-right" bg="4" />
         </div><!-- dashboard-w1 end -->
     </div><!-- row end-->
@@ -301,15 +301,15 @@
             startDate: start,
             endDate: end,
             ranges: {
-                'Today': [moment(), moment()],
-                'Yesterday': [moment().subtract(1, 'days'), moment().subtract(1, 'days')],
-                'Last 7 Days': [moment().subtract(6, 'days'), moment()],
-                'Last 15 Days': [moment().subtract(14, 'days'), moment()],
-                'Last 30 Days': [moment().subtract(30, 'days'), moment()],
-                'This Month': [moment().startOf('month'), moment().endOf('month')],
-                'Last Month': [moment().subtract(1, 'month').startOf('month'), moment().subtract(1, 'month').endOf('month')],
-                'Last 6 Months': [moment().subtract(6, 'months').startOf('month'), moment().endOf('month')],
-                'This Year': [moment().startOf('year'), moment().endOf('year')],
+                @json(__('Today')): [moment(), moment()],
+                @json(__('Yesterday')): [moment().subtract(1, 'days'), moment().subtract(1, 'days')],
+                @json(__('Last 7 Days')): [moment().subtract(6, 'days'), moment()],
+                @json(__('Last 15 Days')): [moment().subtract(14, 'days'), moment()],
+                @json(__('Last 30 Days')): [moment().subtract(30, 'days'), moment()],
+                @json(__('This Month')): [moment().startOf('month'), moment().endOf('month')],
+                @json(__('Last Month')): [moment().subtract(1, 'month').startOf('month'), moment().subtract(1, 'month').endOf('month')],
+                @json(__('Last 6 Months')): [moment().subtract(6, 'months').startOf('month'), moment().endOf('month')],
+                @json(__('This Year')): [moment().startOf('year'), moment().endOf('year')],
             },
             maxDate: moment()
         }
@@ -322,15 +322,15 @@
             document.querySelector("#dwChartArea"),
             @json(__(gs('cur_text'))),
             [{
-                    name: 'Deposited',
+                    name: @json(__('Deposited')),
                     data: []
                 },
                 {
-                    name: 'Withdrawn',
+                    name: @json(__('Withdrawn')),
                     data: []
                 },
                 {
-                    name: 'Invest',
+                    name: @json(__('Invest')),
                     data: [],
                 }
             ],
@@ -340,11 +340,11 @@
         let trxChart = lineChart(
             document.querySelector("#transactionChartArea"),
             [{
-                    name: "Plus Transactions",
+                    name: @json(__('Plus Transactions')),
                     data: []
                 },
                 {
-                    name: "Minus Transactions",
+                    name: @json(__('Minus Transactions')),
                     data: []
                 }
             ],

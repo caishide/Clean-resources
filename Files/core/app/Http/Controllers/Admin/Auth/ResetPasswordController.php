@@ -30,7 +30,15 @@ class ResetPasswordController extends Controller
         $request->validate([
             'email' => 'required|email',
             'token' => 'required',
-            'password' => 'required|confirmed|min:4',
+            'password' => [
+                'required',
+                'confirmed',
+                'min:10',
+                'regex:/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]+$/'
+            ],
+        ], [
+            'password.min' => 'Admin password must be at least 10 characters',
+            'password.regex' => 'Admin password must contain at least one uppercase letter, one lowercase letter, one number, and one special character (!@#$%^&*)'
         ]);
 
         $reset = AdminPasswordReset::where('token', $request->token)->orderBy('created_at', 'desc')->first();

@@ -10,33 +10,25 @@ use Illuminate\Validation\Rules\Password;
 
 class ProfileController extends Controller
 {
-    public function profile()
+    public function profile(): \Illuminate\View\View
     {
         $pageTitle = "Profile Setting";
         $user = auth()->user();
         return view('Template::user.profile_setting', compact('pageTitle','user'));
     }
 
-    public function submitProfile(Request $request)
+    public function submitProfile(UpdateProfileRequest $request): \Illuminate\Http\RedirectResponse
     {
-        $request->validate([
-            'firstname' => 'required|string',
-            'lastname' => 'required|string',
-            'image' => ['nullable','image',new FileTypeValidate(['jpg','jpeg','png'])]
-        ],[
-            'firstname.required'=>'The first name field is required',
-            'lastname.required'=>'The last name field is required'
-        ]);
-
         $user = auth()->user();
 
-        $user->firstname = $request->firstname;
-        $user->lastname = $request->lastname;
+        // Sanitize input to prevent XSS attacks
+        $user->firstname = strip_tags($request->firstname);
+        $user->lastname = strip_tags($request->lastname);
 
-        $user->address = $request->address;
-        $user->city = $request->city;
-        $user->state = $request->state;
-        $user->zip = $request->zip;
+        $user->address = strip_tags($request->address);
+        $user->city = strip_tags($request->city);
+        $user->state = strip_tags($request->state);
+        $user->zip = strip_tags($request->zip);
 
         if ($request->hasFile('image')) {
             try {
@@ -48,29 +40,38 @@ class ProfileController extends Controller
             }
         }
 
-
         $user->save();
         $notify[] = ['success', 'Profile updated successfully'];
         return back()->withNotify($notify);
     }
 
-    public function changePassword()
+    public function changePassword(): \Illuminate\View\View
     {
         $pageTitle = 'Change Password';
         return view('Template::user.password', compact('pageTitle'));
     }
 
-    public function submitPassword(Request $request)
+    public function submitPassword(Request $request): \Illuminate\Http\RedirectResponse
     {
 
-        $passwordValidation = Password::min(6);
-        if (gs('secure_password')) {
-            $passwordValidation = $passwordValidation->mixedCase()->numbers()->symbols()->uncompromised();
-        }
+        // Strong password requirement - minimum 8 characters with complexity
+        $passwordValidation = Password::min(8)
+            ->letters()
+            ->mixedCase()
+            ->numbers()
+            ->symbols()
+            ->uncompromised();
 
         $request->validate([
             'current_password' => 'required',
             'password' => ['required','confirmed',$passwordValidation]
+        ], [
+            'password.min' => 'Password must be at least 8 characters',
+            'password.letters' => 'Password must contain at least one letter',
+            'password.mixed_case' => 'Password must contain both uppercase and lowercase letters',
+            'password.numbers' => 'Password must contain at least one number',
+            'password.symbols' => 'Password must contain at least one special character (!@#$%^&*)',
+            'password.uncompromised' => 'This password has been compromised in a data breach. Please choose a different password'
         ]);
 
         $user = auth()->user();

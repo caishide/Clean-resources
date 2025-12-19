@@ -9,12 +9,17 @@ use App\Models\Deposit;
 use App\Constants\Status;
 use App\Models\Withdrawal;
 use App\Models\Transaction;
+use App\Models\AuditLog;
+use App\Models\Admin;
 use Illuminate\Http\Request;
 use App\Models\NotificationLog;
 use App\Rules\FileTypeValidate;
 use App\Http\Controllers\Controller;
 use App\Models\NotificationTemplate;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Session;
+use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
 
 class ManageUsersController extends Controller
 {
@@ -288,10 +293,303 @@ class ManageUsersController extends Controller
         return back()->withNotify($notify);
     }
 
-    public function login($id)
+    /**
+     * Start admin impersonation of a user
+     * This is a critical security function that requires:
+     * 1. Admin authentication
+     * 2. 2FA verification if user has it enabled
+     * 3. Comprehensive audit logging
+     * 4. Session flagging for impersonation
+     * 5. Time-limited access
+     *
+     * @param int $id User ID to impersonate
+     * @param Request $request
+     * @return \Illuminate\Http\RedirectResponse
+     */
+    public function login($id, Request $request)
     {
-        Auth::loginUsingId($id);
-        return to_route('user.home');
+        // Verify admin is authenticated
+        if (!auth()->guard('admin')->check()) {
+            $notify[] = ['error', 'Unauthorized access'];
+            return to_route('admin.login')->withNotify($notify);
+        }
+
+        $admin = auth()->guard('admin')->user();
+        $user = User::findOrFail($id);
+
+        // Prevent admin from impersonating themselves
+        if ($admin->id == $user->id) {
+            $notify[] = ['error', 'Cannot impersonate yourself'];
+            return back()->withNotify($notify);
+        }
+
+        // Check if user has 2FA enabled
+        if ($user->tv == Status::VERIFIED) {
+            // Store impersonation intent in session
+            Session::put('impersonate_intent', [
+                'admin_id' => $admin->id,
+                'user_id' => $user->id,
+                'timestamp' => time(),
+                'ip' => $request->ip(),
+                'user_agent' => $request->userAgent(),
+                'reason' => $request->reason ?? 'No reason provided'
+            ]);
+
+            // Redirect to 2FA verification page
+            return to_route('admin.user.impersonate.verify', $user->id);
+        }
+
+        // If no 2FA required, proceed with impersonation
+        return $this->performImpersonation($admin, $user, $request);
+    }
+
+    /**
+     * Show 2FA verification form for impersonation
+     *
+     * @param int $id User ID being impersonated
+     * @return \Illuminate\Http\Response
+     */
+    public function show2FAForm($id)
+    {
+        // Verify admin is authenticated
+        if (!auth()->guard('admin')->check()) {
+            $notify[] = ['error', 'Unauthorized access'];
+            return to_route('admin.login')->withNotify($notify);
+        }
+
+        // Check if impersonation intent exists in session
+        $intent = Session::get('impersonate_intent');
+        if (!$intent || $intent['user_id'] != $id) {
+            $notify[] = ['error', 'Invalid or expired impersonation request'];
+            return to_route('admin.users.detail', $id)->withNotify($notify);
+        }
+
+        $user = User::findOrFail($id);
+        $pageTitle = '2FA Verification for Impersonation - ' . $user->username;
+
+        return view($this->getAdminTemplate() . 'admin.auth.impersonation_2fa', compact('pageTitle', 'user', 'id'));
+    }
+
+    /**
+     * Get active template name for admin views
+     *
+     * @return string
+     */
+    private function getAdminTemplate()
+    {
+        return activeTemplateName() . '.';
+    }
+
+    /**
+     * Verify 2FA code for impersonation
+     *
+     * @param Request $request
+     * @param int $id User ID being impersonated
+     * @return \Illuminate\Http\RedirectResponse
+     */
+    public function verify2FA(Request $request, $id)
+    {
+        $request->validate([
+            'code' => 'required',
+        ]);
+
+        // Verify admin is authenticated
+        if (!auth()->guard('admin')->check()) {
+            $notify[] = ['error', 'Unauthorized access'];
+            return to_route('admin.login')->withNotify($notify);
+        }
+
+        $admin = auth()->guard('admin')->user();
+        $user = User::findOrFail($id);
+
+        // Check if impersonation intent exists in session
+        $intent = Session::get('impersonate_intent');
+        if (!$intent || $intent['admin_id'] != $admin->id || $intent['user_id'] != $user->id) {
+            $notify[] = ['error', 'Invalid impersonation request'];
+            return back()->withNotify($notify);
+        }
+
+        // Verify 2FA code
+        $response = verifyG2fa($user, $request->code);
+        if (!$response) {
+            $notify[] = ['error', 'Invalid verification code'];
+            return back()->withNotify($notify);
+        }
+
+        // Clear impersonation intent from session
+        Session::forget('impersonate_intent');
+
+        // Perform the impersonation
+        return $this->performImpersonation($admin, $user, $request);
+    }
+
+    /**
+     * Perform the actual impersonation with all security checks
+     *
+     * @param Admin $admin Admin performing impersonation
+     * @param User $user User being impersonated
+     * @param Request $request
+     * @return \Illuminate\Http\RedirectResponse
+     */
+    private function performImpersonation(Admin $admin, User $user, Request $request)
+    {
+        // Start database transaction for data integrity
+        DB::beginTransaction();
+
+        try {
+            // Store original admin session data
+            $originalSessionData = [
+                'admin_id' => $admin->id,
+                'admin_username' => $admin->username,
+                'admin_email' => $admin->email,
+                'original_login_at' => now(),
+                'impersonation_start_time' => time(),
+                'impersonation_expires_at' => time() + (config('session.lifetime', 120) * 60), // Default to session lifetime
+            ];
+
+            // Log admin out from admin panel
+            Auth::guard('admin')->logout();
+
+            // Log in as the user
+            Auth::loginUsingId($user->id);
+
+            // Store impersonation data in session
+            Session::put('is_impersonating', true);
+            Session::put('impersonator_data', $originalSessionData);
+            Session::put('impersonation_reason', $request->reason ?? 'No reason provided');
+            Session::put('impersonation_started_at', now());
+
+            // Log the impersonation start event
+            AuditLog::create([
+                'admin_id' => $admin->id,
+                'action_type' => 'admin_impersonation_start',
+                'entity_type' => 'User',
+                'entity_id' => $user->id,
+                'meta' => [
+                    'admin_username' => $admin->username,
+                    'admin_email' => $admin->email,
+                    'user_id' => $user->id,
+                    'user_username' => $user->username,
+                    'user_email' => $user->email,
+                    'ip_address' => $request->ip(),
+                    'user_agent' => $request->userAgent(),
+                    'reason' => $originalSessionData['impersonation_reason'],
+                    'started_at' => now()->toISOString(),
+                    'expires_at' => Carbon::createFromTimestamp($originalSessionData['impersonation_expires_at'])->toISOString(),
+                ]
+            ]);
+
+            // Commit the transaction
+            DB::commit();
+
+            // Redirect with success message
+            $notify[] = ['success', 'You are now impersonating ' . $user->username . '. All actions are being logged.'];
+            return to_route('user.home')->withNotify($notify);
+
+        } catch (\Exception $e) {
+            // Rollback on error
+            DB::rollBack();
+
+            // Log the error
+            AuditLog::create([
+                'admin_id' => $admin->id,
+                'action_type' => 'admin_impersonation_failed',
+                'entity_type' => 'User',
+                'entity_id' => $user->id,
+                'meta' => [
+                    'error' => $e->getMessage(),
+                    'ip_address' => $request->ip(),
+                    'user_agent' => $request->userAgent(),
+                ]
+            ]);
+
+            $notify[] = ['error', 'Failed to start impersonation. Please try again.'];
+            return back()->withNotify($notify);
+        }
+    }
+
+    /**
+     * Exit impersonation mode and return to admin panel
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\RedirectResponse
+     */
+    public function exitImpersonation(Request $request)
+    {
+        // Check if currently impersonating
+        if (!Session::has('is_impersonating') || !Session::get('is_impersonating')) {
+            $notify[] = ['error', 'Not currently impersonating any user'];
+            return to_route('admin.dashboard')->withNotify($notify);
+        }
+
+        // Get impersonation data
+        $impersonatorData = Session::get('impersonator_data');
+        $adminId = $impersonatorData['admin_id'] ?? null;
+
+        // Get the current user being impersonated
+        $currentUser = Auth::user();
+
+        // Log out from user session
+        Auth::logout();
+
+        // Log back in as admin if admin record exists
+        if ($adminId) {
+            $admin = Admin::find($adminId);
+            if ($admin) {
+                Auth::guard('admin')->login($admin);
+
+                // Log the impersonation end event
+                if ($currentUser) {
+                    AuditLog::create([
+                        'admin_id' => $admin->id,
+                        'action_type' => 'admin_impersonation_end',
+                        'entity_type' => 'User',
+                        'entity_id' => $currentUser->id,
+                        'meta' => [
+                            'admin_username' => $admin->username,
+                            'user_id' => $currentUser->id,
+                            'user_username' => $currentUser->username,
+                            'session_duration_minutes' => $this->calculateSessionDuration($impersonatorData),
+                            'ip_address' => $request->ip(),
+                            'user_agent' => $request->userAgent(),
+                            'ended_at' => now()->toISOString(),
+                        ]
+                    ]);
+                }
+            }
+        }
+
+        // Clear all impersonation-related session data
+        Session::forget('is_impersonating');
+        Session::forget('impersonator_data');
+        Session::forget('impersonation_reason');
+        Session::forget('impersonation_started_at');
+
+        $notify[] = ['success', 'Successfully exited impersonation mode'];
+        return to_route('admin.dashboard')->withNotify($notify);
+    }
+
+    /**
+     * Check if current session is an impersonation
+     *
+     * @return bool
+     */
+    public function isImpersonating()
+    {
+        return Session::has('is_impersonating') && Session::get('is_impersonating');
+    }
+
+    /**
+     * Calculate session duration in minutes
+     *
+     * @param array $impersonatorData
+     * @return float
+     */
+    private function calculateSessionDuration(array $impersonatorData)
+    {
+        $startTime = $impersonatorData['impersonation_start_time'] ?? time();
+        $endTime = time();
+        return round(($endTime - $startTime) / 60, 2);
     }
 
     public function status(Request $request, $id)

@@ -7,6 +7,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Controllers\Gateway\PaymentController;
 use App\Http\Controllers\Gateway\Paytm\PayTM;
 use App\Models\Deposit;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class ProcessController extends Controller
 {
@@ -47,31 +49,65 @@ class ProcessController extends Controller
 
         return json_encode($send);
     }
-    public function ipn()
+    public function ipn(Request $request)
     {
+        // Validate and sanitize input
+        $validated = $request->validate([
+            'ORDERID' => 'required|string',
+            'CHECKSUMHASH' => 'required|string',
+            'RESPCODE' => 'required|string',
+            'TXNAMOUNT' => 'required|numeric',
+            'RESPMSG' => 'required|string',
+        ]);
 
-        $deposit = Deposit::where('trx', $_POST['ORDERID'])->orderBy('id', 'DESC')->first();
+        Log::channel('gateway')->info('Paytm IPN received', [
+            'order_id' => $validated['ORDERID'],
+            'response_code' => $validated['RESPCODE'],
+            'amount' => $validated['TXNAMOUNT'],
+            'ip' => $request->ip(),
+        ]);
+
+        $deposit = Deposit::where('trx', $validated['ORDERID'])->orderBy('id', 'DESC')->first();
+        if (!$deposit) {
+            Log::channel('gateway')->error('Paytm IPN: Deposit not found', ['order_id' => $validated['ORDERID']]);
+            abort(404);
+        }
+
         $PayTmAcc = json_decode($deposit->gatewayCurrency()->gateway_parameter);
         $ptm = new PayTM();
 
-        if ($ptm->verifychecksum_e($_POST, $PayTmAcc->merchant_key, $_POST['CHECKSUMHASH']) === "TRUE") {
+        if ($ptm->verifychecksum_e($_POST, $PayTmAcc->merchant_key, $validated['CHECKSUMHASH']) === "TRUE") {
+            Log::channel('gateway')->info('Paytm IPN: Checksum verified', ['order_id' => $validated['ORDERID']]);
 
-            if ($_POST['RESPCODE'] == "01") {
-                $requestParamList = array("MID" => $PayTmAcc->MID, "ORDERID" => $_POST['ORDERID']);
+            if ($validated['RESPCODE'] == "01") {
+                $requestParamList = array("MID" => $PayTmAcc->MID, "ORDERID" => $validated['ORDERID']);
                 $StatusCheckSum = $ptm->getChecksumFromArray($requestParamList, $PayTmAcc->merchant_key);
                 $requestParamList['CHECKSUMHASH'] = $StatusCheckSum;
                 $responseParamList = $ptm->callNewAPI($PayTmAcc->transaction_status_url, $requestParamList);
-                if ($responseParamList['STATUS'] == 'TXN_SUCCESS' && $responseParamList['TXNAMOUNT'] == $_POST['TXNAMOUNT'] && $deposit->status == Status::PAYMENT_INITIATE) {
+                if ($responseParamList['STATUS'] == 'TXN_SUCCESS' && $responseParamList['TXNAMOUNT'] == $validated['TXNAMOUNT'] && $deposit->status == Status::PAYMENT_INITIATE) {
+                    Log::channel('gateway')->info('Paytm IPN: Payment successful', ['order_id' => $validated['ORDERID']]);
                     PaymentController::userDataUpdate($deposit);
                     $notify[] = ['success', 'Transaction is successful'];
                     return redirect($deposit->success_url)->withNotify($notify);
                 } else {
+                    Log::channel('gateway')->warning('Paytm IPN: Transaction status check failed', [
+                        'order_id' => $validated['ORDERID'],
+                        'response_status' => $responseParamList['STATUS'] ?? 'N/A',
+                        'expected_amount' => $validated['TXNAMOUNT'],
+                        'received_amount' => $responseParamList['TXNAMOUNT'] ?? 'N/A'
+                    ]);
                     $notify[] = ['error', 'It seems some issue in server to server communication. Kindly connect with administrator'];
                 }
             } else {
-                $notify[] = ['error',  $_POST['RESPMSG']];
+                Log::channel('gateway')->warning('Paytm IPN: Payment failed', [
+                    'order_id' => $validated['ORDERID'],
+                    'response_code' => $validated['RESPCODE'],
+                    'response_message' => $validated['RESPMSG']
+                ]);
+                $notify[] = ['error',  $validated['RESPMSG']];
             }
         } else {
+            Log::channel('gateway')->error('Paytm IPN: Checksum verification failed', ['order_id' => $validated['ORDERID']]);
             $notify[] = ['error',  'Security error!'];
         }
         return redirect($deposit->failed_url)->withNotify($notify);

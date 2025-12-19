@@ -7,6 +7,7 @@ use App\Http\Controllers\Gateway\PaymentController;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use App\Lib\CurlRequest;
+use Illuminate\Support\Facades\Log;
 class ProcessController extends Controller{
 
     public static function process($deposit){
@@ -52,17 +53,47 @@ class ProcessController extends Controller{
     }
 
     public function ipn(Request $request){
-        $track = $request->tran_id;
-        $status = $request->status;
+        // Validate input to prevent IDOR attacks
+        $validated = $request->validate([
+            'tran_id' => 'required|string|max:50|regex:/^[a-zA-Z0-9_-]+$/',
+            'status' => 'required|string|in:VALID,INVALID',
+            'verify_sign' => 'required|string|size:32',
+            'verify_key' => 'required|string',
+        ]);
+
+        Log::channel('gateway')->info('SslCommerz IPN received', [
+            'tran_id' => $validated['tran_id'],
+            'status' => $validated['status'],
+            'ip' => $request->ip(),
+        ]);
+
+        $track = $validated['tran_id'];
+        $status = $validated['status'];
         $deposit = Deposit::where('trx', $track)->orderBy('id', 'DESC')->first();
+
+        if (!$deposit) {
+            Log::channel('gateway')->error('SslCommerz IPN: Deposit not found', ['tran_id' => $track]);
+            abort(404);
+        }
+
         if ($status == 'VALID' && @$deposit->status == Status::PAYMENT_INITIATE) {
-            if (isset($_POST) && isset($_POST['verify_sign']) && isset($_POST['verify_key'])) {
-                $preDefineKey = explode(',', $_POST['verify_key']);
+            // Validate that verify_key is properly formatted
+            if (strpos($validated['verify_key'], ',') !== false && strlen($validated['verify_key']) < 255) {
+                $preDefineKey = explode(',', $validated['verify_key']);
                 $newData = array();
+
+                // Only allow known safe keys
+                $allowedKeys = ['tran_id', 'val_id', 'amount', 'card_type', 'store_amount', 'card_no', 'bank_tran_id',
+                               'status', 'tran_date', 'error', 'error_title', 'error_description', 'store_id',
+                               'card_issuer', 'card_brand', 'card_issuer_country', 'card_issuer_country_code', 'currency',
+                               'currency_type', 'convertion_rate', 'convertion_amount', 'convertion_charge'];
+
                 if (!empty($preDefineKey)) {
                     foreach ($preDefineKey as $value) {
-                        if (isset($_POST[$value])) {
-                            $newData[$value] = ($_POST[$value]);
+                        // Sanitize key name to prevent injection
+                        $sanitizedKey = preg_replace('/[^a-zA-Z0-9_-]/', '', $value);
+                        if (in_array($sanitizedKey, $allowedKeys) && $request->has($sanitizedKey)) {
+                            $newData[$sanitizedKey] = $request->input($sanitizedKey);
                         }
                     }
                 }
@@ -72,20 +103,37 @@ class ProcessController extends Controller{
 
                 ksort($newData);
                 $hashString = "";
-                foreach ($newData as $key => $value) {$hashString .= $key . '=' . ($value) . '&';}
+                foreach ($newData as $key => $value) {
+                    // Ensure value is properly escaped
+                    $hashString .= $key . '=' . addslashes($value) . '&';
+                }
                 $hashString = rtrim($hashString, '&');
-                if (md5($hashString) == $_POST['verify_sign']) {
-                    $input  = $request->except('method');
+
+                if (md5($hashString) == $validated['verify_sign']) {
+                    Log::channel('gateway')->info('SslCommerz IPN: Hash verified', ['tran_id' => $track]);
+                    $input  = $request->except(['method', '_token']);
                     $ssltxt = "";
                     foreach ($input as $key => $value) {
-                        $ssltxt .= "$key : $value <br>";
+                        $ssltxt .= "$key : " . htmlspecialchars($value, ENT_QUOTES, 'UTF-8') . " <br>";
                     }
                     PaymentController::userDataUpdate($deposit);
                     $notify[] = ['success', 'Payment captured successfully'];
                     return redirect($deposit->success_url)->withNotify($notify);
+                } else {
+                    Log::channel('gateway')->error('SslCommerz IPN: Hash verification failed', [
+                        'tran_id' => $track,
+                        'expected_hash' => md5($hashString),
+                        'received_hash' => $validated['verify_sign']
+                    ]);
                 }
+            } else {
+                Log::channel('gateway')->error('SslCommerz IPN: Invalid verify_key format', [
+                    'tran_id' => $track,
+                    'verify_key' => substr($validated['verify_key'], 0, 100)
+                ]);
             }
         }
+        Log::channel('gateway')->warning('SslCommerz IPN: Invalid request', ['tran_id' => $track, 'status' => $status]);
         $notify[] = ['error','Invalid request'];
         return redirect($deposit->failed_url)->withNotify($notify);
     }

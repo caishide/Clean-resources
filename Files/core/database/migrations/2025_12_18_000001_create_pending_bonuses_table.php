@@ -22,7 +22,7 @@ return new class extends Migration
             $table->timestamps();
 
             // 幂等键：同一来源同一收款人不重复
-            $table->unique(['recipient_id', 'bonus_type', 'source_type', 'source_id']);
+            $table->unique(['recipient_id', 'bonus_type', 'source_type', 'source_id'], 'pb_unique_key');
         });
     }
 

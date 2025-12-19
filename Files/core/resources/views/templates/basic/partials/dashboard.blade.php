@@ -15,6 +15,23 @@
                             <h5 class="name">{{ auth()->user()->fullname }}</h5>
                         </div>
                     </div>
+
+                    @if(Session::has('is_impersonating') && Session::get('is_impersonating'))
+                        <div class="alert alert-danger mt-3">
+                            <div class="d-flex align-items-center">
+                                <i class="las la-user-shield fs-4 me-2"></i>
+                                <div>
+                                    <strong>@lang('Admin Impersonation Active')</strong>
+                                    <p class="mb-0 small">
+                                        @lang('You are being impersonated by an administrator. All actions are being logged.')
+                                    </p>
+                                </div>
+                            </div>
+                            <a href="{{ route('admin.users.exit.impersonation') }}" class="btn btn--danger btn-sm mt-2 w-100">
+                                        <i class="las la-sign-out-alt"></i> @lang('Exit Impersonation')
+                                    </a>
+                        </div>
+                    @endif
                     <ul class="user-dashboard-tab">
                         <li>
                             <a class="{{menuActive('user.home')}}" href="{{route('user.home')}}">@lang('Dasboard')</a>

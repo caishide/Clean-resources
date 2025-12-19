@@ -6,11 +6,14 @@ Route::get('/clear', function () {
     \Illuminate\Support\Facades\Artisan::call('optimize:clear');
 });
 
-
 Route::get('cron', 'CronController@cron')->name('cron');
 
+// Health check endpoints (publicly accessible for monitoring)
+Route::get('/health', 'HealthController@check')->name('health.check');
+Route::get('/health/metrics', 'HealthController@metrics')->name('health.metrics');
+
 // User Support Ticket
-Route::controller('TicketController')->prefix('ticket')->name('ticket.')->group(function () {
+Route::controller('TicketController')->prefix('ticket')->middleware(['throttle:3,1'])->name('ticket.')->group(function () {
     Route::get('/', 'supportTicket')->name('index');
     Route::get('new', 'openSupportTicket')->name('open');
     Route::post('create', 'storeSupportTicket')->name('store');
@@ -20,7 +23,7 @@ Route::controller('TicketController')->prefix('ticket')->name('ticket.')->group(
     Route::get('download/{attachment_id}', 'ticketDownload')->name('download');
 });
 
-Route::controller('SiteController')->group(function () {
+Route::controller('SiteController')->middleware(['throttle:5,1'])->group(function () {
     Route::get('/contact', 'contact')->name('contact');
     Route::post('/contact', 'contactSubmit');
     Route::get('/change/{lang?}', 'changeLanguage')->name('lang');

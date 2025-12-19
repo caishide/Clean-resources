@@ -235,18 +235,57 @@ class UserController extends Controller
 
     public function downloadAttachment($fileHash)
     {
-        $filePath  = decrypt($fileHash);
-        $extension = pathinfo($filePath, PATHINFO_EXTENSION);
-        $title     = slug(gs('site_name')) . '- attachments.' . $extension;
         try {
-            $mimetype = mime_content_type($filePath);
+            $filePath = decrypt($fileHash);
+
+            // Resolve the real path to prevent path traversal
+            $realPath = realpath($filePath);
+            $allowedPath = realpath(storage_path('app/attachments'));
+
+            // Validate that the path is within the allowed directory
+            if (!$realPath || !$allowedPath || !str_starts_with($realPath, $allowedPath)) {
+                Log::channel('security')->warning('Path traversal attempt in downloadAttachment', [
+                    'attempted_path' => $filePath,
+                    'real_path' => $realPath,
+                    'user_id' => auth()->id(),
+                    'ip' => request()->ip()
+                ]);
+                $notify[] = ['error','Invalid file path'];
+                return back()->withNotify($notify);
+            }
+
+            // Verify file exists
+            if (!file_exists($realPath)) {
+                Log::channel('security')->warning('File not found in downloadAttachment', [
+                    'file_path' => $realPath,
+                    'user_id' => auth()->id()
+                ]);
+                $notify[] = ['error','File does not exist'];
+                return back()->withNotify($notify);
+            }
+
+            $extension = pathinfo($realPath, PATHINFO_EXTENSION);
+            $title = slug(gs('site_name')).'- attachments.'.$extension;
+
+            $mimetype = mime_content_type($realPath);
+
+            Log::channel('security')->info('File downloaded successfully', [
+                'file_path' => $realPath,
+                'user_id' => auth()->id(),
+                'ip' => request()->ip()
+            ]);
+
+            return response()->download($realPath, $title, ['Content-Type' => $mimetype]);
+
         } catch (\Exception $e) {
-            $notify[] = ['error', 'File does not exists'];
+            Log::channel('security')->error('Error in downloadAttachment', [
+                'error' => $e->getMessage(),
+                'file_hash' => $fileHash,
+                'user_id' => auth()->id()
+            ]);
+            $notify[] = ['error','File does not exist'];
             return back()->withNotify($notify);
         }
-        header('Content-Disposition: attachment; filename="' . $title);
-        header("Content-Type: " . $mimetype);
-        return readfile($filePath);
     }
 
     public function purchase(Request $request)
@@ -320,7 +359,7 @@ class UserController extends Controller
     public function searchUser(Request $request)
     {
         $transUser = User::where('username', $request->username)->orwhere('email', $request->username)->count();
-        if ($transUser == 1) {
+        if ($transUser >= 1) {
             return response()->json(['success' => true]);
         } else {
             return response()->json(['success' => false]);
@@ -349,6 +388,11 @@ class UserController extends Controller
         }
         if ($transUser->email == $user->email) {
             $notify[] = ['error', 'Balance transfer not possible in your own account'];
+            return back()->withNotify($notify);
+        }
+
+        if ($user->balance < 0) {
+            $notify[] = ['error', '余额为负，暂不可转账'];
             return back()->withNotify($notify);
         }
 

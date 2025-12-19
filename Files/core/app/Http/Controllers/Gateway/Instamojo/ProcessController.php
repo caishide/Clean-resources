@@ -67,18 +67,45 @@ class ProcessController extends Controller
 
     public function ipn(Request $request)
     {
-        $deposit = Deposit::where('btc_wallet', $_POST['payment_request_id'])->orderBy('id', 'DESC')->first();
+        // Validate and sanitize input
+        $validated = $request->validate([
+            'payment_request_id' => 'required|string',
+            'mac' => 'required|string',
+            'status' => 'required|string',
+        ]);
+
+        Log::channel('gateway')->info('Instamojo IPN received', [
+            'payment_request_id' => $validated['payment_request_id'],
+            'status' => $validated['status'],
+            'ip' => $request->ip(),
+        ]);
+
+        $deposit = Deposit::where('btc_wallet', $validated['payment_request_id'])->orderBy('id', 'DESC')->first();
+        if (!$deposit) {
+            Log::channel('gateway')->error('Instamojo IPN: Deposit not found', ['payment_request_id' => $validated['payment_request_id']]);
+            abort(404);
+        }
+
         $instaMojoAcc = json_decode($deposit->gatewayCurrency()->gateway_parameter);
         $deposit->detail = $request->all();
         $deposit->save();
-        $imData = $_POST;
-        $macSent = $imData['mac'];
+
+        $imData = $request->all();
+        $macSent = $validated['mac'];
         unset($imData['mac']);
         ksort($imData, SORT_STRING | SORT_FLAG_CASE);
         $mac = hash_hmac("sha1", implode("|", $imData), $instaMojoAcc->salt);
 
-        if ($macSent == $mac && $imData['status'] == "Credit" && $deposit->status == Status::PAYMENT_INITIATE) {
+        if ($macSent == $mac && $validated['status'] == "Credit" && $deposit->status == Status::PAYMENT_INITIATE) {
+            Log::channel('gateway')->info('Instamojo IPN: Payment successful', ['payment_request_id' => $validated['payment_request_id']]);
             PaymentController::userDataUpdate($deposit);
+        } else {
+            Log::channel('gateway')->warning('Instamojo IPN: Validation failed', [
+                'payment_request_id' => $validated['payment_request_id'],
+                'mac_match' => $macSent == $mac,
+                'status' => $validated['status'],
+                'deposit_status' => $deposit->status
+            ]);
         }
     }
 }

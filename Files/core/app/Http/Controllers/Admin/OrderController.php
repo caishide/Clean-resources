@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Models\Order;
 use App\Constants\Status;
 use App\Models\Transaction;
+use App\Services\OrderShipmentService;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 
@@ -23,23 +24,29 @@ class OrderController extends Controller
         return view('admin.orders', compact('pageTitle', 'orders', 'emptyMessage'));
     }
 
-    public function status(Request $request, $id)
+    public function status(Request $request, $id, OrderShipmentService $shipmentService)
     {
         $request->validate([
             'status' => 'required|in:1,2'
         ]);
 
-        $order   = Order::where('status', Status::ORDER_PENDING)->findOrFail($id);
+        $order   = Order::with('product', 'user')->findOrFail($id);
         $product = $order->product;
         $user    = $order->user;
 
         if ($request->status == Status::ORDER_SHIPPED) {
-            $order->status = Status::ORDER_SHIPPED;
-            $details       = $product->name . ' product purchase';
-            updateBV($user->id, $product->bv, $details);
+            $result = $shipmentService->ship($order);
+            if (($result['status'] ?? null) === 'error') {
+                $notify[] = ['error', $result['message'] ?? 'Failed to ship order'];
+                return back()->withNotify($notify);
+            }
             $template = 'ORDER_SHIPPED';
         } else {
-            
+            if ($order->status != Status::ORDER_PENDING) {
+                $notify[] = ['error', 'Only pending orders can be cancelled'];
+                return back()->withNotify($notify);
+            }
+
             $order->status  = Status::ORDER_CANCELED;
             $user->balance += $order->total_price;
             $user->save();
@@ -58,13 +65,14 @@ class OrderController extends Controller
             $product->save();
 
             $template = 'ORDER_CANCELED';
+            $order->save();
         }
 
-        $order->save();
+        $order->refresh();
 
         notify($user, $template, [
             'product_name' => $product->name,
-            'quantity'     => $request->quantity,
+            'quantity'     => $order->quantity,
             'price'        => showAmount($product->price, currencyFormat: false),
             'total_price'  => showAmount($order->total_price, currencyFormat: false),
             'trx'          => $order->trx,

@@ -1,0 +1,87 @@
+name: Rollback Deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      backup_version:
+        description: 'Backup version to rollback to (format: YYYYMMDD_HHMMSS)'
+        required: true
+        type: string
+      environment:
+        description: 'Environment to rollback'
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+
+jobs:
+  rollback:
+    name: Rollback to Backup
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Rollback ${{ github.event.inputs.environment }}
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.ROLLBACK_HOST }}
+          username: ${{ secrets.ROLLBACK_USER }}
+          key: ${{ secrets.ROLLBACK_SSH_KEY }}
+          port: ${{ secrets.ROLLBACK_PORT }}
+          script: |
+            BACKUP_DIR="/var/backups/laravel/${{ github.event.inputs.backup_version }}"
+            APP_DIR="/var/www/${{ github.event.inputs.environment }}"
+
+            echo "Starting rollback to $BACKUP_DIR"
+
+            # Verify backup exists
+            if [ ! -d "$BACKUP_DIR" ]; then
+              echo "ERROR: Backup directory does not exist: $BACKUP_DIR"
+              exit 1
+            fi
+
+            # Create emergency backup of current state
+            EMERGENCY_BACKUP="/var/backups/laravel/emergency_$(date +%Y%m%d_%H%M%S)"
+            echo "Creating emergency backup at $EMERGENCY_BACKUP"
+            cp -r $APP_DIR $EMERGENCY_BACKUP/
+
+            # Stop services
+            sudo systemctl stop php8.2-fpm
+            sudo systemctl stop nginx
+            sudo systemctl stop supervisor
+
+            # Restore backup
+            echo "Restoring application from backup..."
+            rm -rf $APP_DIR
+            cp -r $BACKUP_DIR $APP_DIR
+
+            # Set permissions
+            sudo chown -R www-data:www-data $APP_DIR
+            sudo chmod -R 755 $APP_DIR
+            sudo chmod -R 775 $APP_DIR/storage
+            sudo chmod -R 775 $APP_DIR/bootstrap/cache
+
+            # Start services
+            sudo systemctl start php8.2-fpm
+            sudo systemctl start nginx
+            sudo systemctl start supervisor
+
+            echo "Rollback completed successfully"
+
+      - name: Verify rollback
+        run: |
+          sleep 10
+          curl -f https://${{ github.event.inputs.environment }}.example.com/health || exit 1
+          curl -f https://${{ github.event.inputs.environment }}.example.com/api/health || exit 1
+
+      - name: Notify rollback
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          text: '⚠️ Rollback performed on ${{ github.event.inputs.environment }} to version ${{ github.event.inputs.backup_version }}'
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}

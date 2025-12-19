@@ -10,10 +10,42 @@ use App\Constants\Status;
 use App\Models\UserExtra;
 use App\Models\CronJobLog;
 use App\Models\Transaction;
+use Illuminate\Http\RedirectResponse;
 
+/**
+ * CronController - Handles scheduled cron job execution
+ *
+ * Manages matching bonus calculations and BV (Business Volume) processing
+ */
 class CronController extends Controller
 {
-    public function cron()
+    /** @var int Carry flash mode: deduct only paid BV */
+    private const CARRY_FLASH_DEDUCT_PAID = 0;
+
+    /** @var int Carry flash mode: deduct weak side completely */
+    private const CARRY_FLASH_DEDUCT_WEAK = 1;
+
+    /** @var int Carry flash mode: flush all BV */
+    private const CARRY_FLASH_FLUSH_ALL = 2;
+
+    /** @var int BV position: left side */
+    private const BV_POSITION_LEFT = 1;
+
+    /** @var int BV position: right side */
+    private const BV_POSITION_RIGHT = 2;
+
+    /** @var int Zero charge for transactions */
+    private const ZERO_CHARGE = 0;
+
+    /** @var int Zero BV value */
+    private const ZERO_BV = 0;
+
+    /**
+     * Execute scheduled cron jobs
+     *
+     * @return RedirectResponse|null
+     */
+    public function cron(): ?RedirectResponse
     {
         $general            = gs();
         $general->last_cron = now();
@@ -69,7 +101,12 @@ class CronController extends Controller
     }
 
 
-    private function matchingBound()
+    /**
+     * Calculate and distribute matching bonuses
+     *
+     * @return string Status message
+     */
+    private function matchingBound(): string
     { 
         $generalSetting = gs();
         if ($generalSetting->matching_bonus_time == 'daily') {
@@ -117,7 +154,7 @@ class CronController extends Controller
                 $trx = new Transaction();
                 $trx->user_id = $payment->id;
                 $trx->amount = $bonus;
-                $trx->charge = 0;
+                $trx->charge = self::ZERO_CHARGE;
                 $trx->trx_type = '+';
                 $trx->post_balance = $payment->balance;
                 $trx->remark = 'binary_commission';
@@ -133,23 +170,23 @@ class CronController extends Controller
                 ]);
 
                 $paidbv = $pair * $generalSetting->total_bv;
-                if ($generalSetting->cary_flash == 0) {
+                if ($generalSetting->cary_flash == self::CARRY_FLASH_DEDUCT_PAID) {
                     $bv['setl'] = $uex->bv_left - $paidbv;
                     $bv['setr'] = $uex->bv_right - $paidbv;
                     $bv['paid'] = $paidbv;
-                    $bv['lostl'] = 0;
-                    $bv['lostr'] = 0;
+                    $bv['lostl'] = self::ZERO_BV;
+                    $bv['lostr'] = self::ZERO_BV;
                 }
-                if ($generalSetting->cary_flash == 1) {
+                if ($generalSetting->cary_flash == self::CARRY_FLASH_DEDUCT_WEAK) {
                     $bv['setl'] = $uex->bv_left - $weak;
                     $bv['setr'] = $uex->bv_right - $weak;
                     $bv['paid'] = $paidbv;
                     $bv['lostl'] = $weak - $paidbv;
                     $bv['lostr'] = $weak - $paidbv;
                 }
-                if ($generalSetting->cary_flash == 2) {
-                    $bv['setl'] = 0;
-                    $bv['setr'] = 0;
+                if ($generalSetting->cary_flash == self::CARRY_FLASH_FLUSH_ALL) {
+                    $bv['setl'] = self::ZERO_BV;
+                    $bv['setr'] = self::ZERO_BV;
                     $bv['paid'] = $paidbv;
                     $bv['lostl'] = $uex->bv_left - $paidbv;
                     $bv['lostr'] = $uex->bv_right - $paidbv;
@@ -159,15 +196,15 @@ class CronController extends Controller
                 $uex->save();
 
 
-                if ($bv['paid'] != 0) {
-                    createBVLog($user->id, 1, $bv['paid'], 'Paid ' . $bonus . ' ' . $generalSetting->cur_text . ' For ' . $paidbv . ' BV.');
-                    createBVLog($user->id, 2, $bv['paid'], 'Paid ' . $bonus . ' ' . $generalSetting->cur_text . ' For ' . $paidbv . ' BV.');
+                if ($bv['paid'] != self::ZERO_BV) {
+                    createBVLog($user->id, self::BV_POSITION_LEFT, $bv['paid'], 'Paid ' . $bonus . ' ' . $generalSetting->cur_text . ' For ' . $paidbv . ' BV.');
+                    createBVLog($user->id, self::BV_POSITION_RIGHT, $bv['paid'], 'Paid ' . $bonus . ' ' . $generalSetting->cur_text . ' For ' . $paidbv . ' BV.');
                 }
-                if ($bv['lostl'] != 0) {
-                    createBVLog($user->id, 1, $bv['lostl'], 'Flush ' . $bv['lostl'] . ' BV after Paid ' . $bonus . ' ' . $generalSetting->cur_text . ' For ' . $paidbv . ' BV.');
+                if ($bv['lostl'] != self::ZERO_BV) {
+                    createBVLog($user->id, self::BV_POSITION_LEFT, $bv['lostl'], 'Flush ' . $bv['lostl'] . ' BV after Paid ' . $bonus . ' ' . $generalSetting->cur_text . ' For ' . $paidbv . ' BV.');
                 }
-                if ($bv['lostr'] != 0) {
-                    createBVLog($user->id, 2, $bv['lostr'], 'Flush ' . $bv['lostr'] . ' BV after Paid ' . $bonus . ' ' . $generalSetting->cur_text . ' For ' . $paidbv . ' BV.');
+                if ($bv['lostr'] != self::ZERO_BV) {
+                    createBVLog($user->id, self::BV_POSITION_RIGHT, $bv['lostr'], 'Flush ' . $bv['lostr'] . ' BV after Paid ' . $bonus . ' ' . $generalSetting->cur_text . ' For ' . $paidbv . ' BV.');
                 }
             }
             return '---';

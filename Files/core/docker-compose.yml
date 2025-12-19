@@ -1,0 +1,148 @@
+version: '3.8'
+
+services:
+  # Laravel Application
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: laravel-app
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./:/var/www
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./docker/php/local.ini:/usr/local/etc/php/php.ini
+    depends_on:
+      - mysql
+      - redis
+    networks:
+      - laravel
+    environment:
+      - APP_ENV=local
+      - APP_DEBUG=true
+
+  # MySQL Database
+  mysql:
+    image: mysql:8.0
+    container_name: laravel-mysql
+    restart: unless-stopped
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./docker/mysql/my.cnf:/etc/mysql/conf.d/my.cnf
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: laravel
+      MYSQL_USER: laravel
+      MYSQL_PASSWORD: secret
+    networks:
+      - laravel
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: laravel-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+      - ./docker/redis/redis.conf:/usr/local/etc/redis/redis.conf
+    networks:
+      - laravel
+
+  # Nginx Web Server
+  nginx:
+    image: nginx:alpine
+    container_name: laravel-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./:/var/www
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./docker/nginx/conf.d:/etc/nginx/conf.d
+      - ./storage:/var/www/storage
+    depends_on:
+      - app
+    networks:
+      - laravel
+
+  # PHP-FPM
+  php-fpm:
+    build:
+      context: .
+      dockerfile: Dockerfile.php-fpm
+    container_name: laravel-php-fpm
+    restart: unless-stopped
+    volumes:
+      - ./:/var/www
+      - ./docker/php/local.ini:/usr/local/etc/php/php.ini
+    depends_on:
+      - mysql
+      - redis
+    networks:
+      - laravel
+
+  # Queue Worker
+  queue-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: laravel-queue
+    restart: unless-stopped
+    command: php artisan queue:work --verbose --tries=3 --timeout=90
+    volumes:
+      - ./:/var/www
+    depends_on:
+      - mysql
+      - redis
+    networks:
+      - laravel
+
+  # Scheduler
+  scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: laravel-scheduler
+    restart: unless-stopped
+    command: >
+      /bin/sh -c "
+        while [ true ]; do
+          php artisan schedule:run --verbose --no-interaction &
+          sleep 60
+        done
+      "
+    volumes:
+      - ./:/var/www
+    depends_on:
+      - mysql
+      - redis
+    networks:
+      - laravel
+
+  # MailHog for Email Testing
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: laravel-mailhog
+    restart: unless-stopped
+    ports:
+      - "1025:1025"  # SMTP
+      - "8025:8025"  # Web UI
+    networks:
+      - laravel
+
+networks:
+  laravel:
+    driver: bridge
+
+volumes:
+  mysql_data:
+    driver: local
+  redis_data:
+    driver: local

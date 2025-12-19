@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use App\Models\AdminNotification;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rules\Password;
@@ -26,7 +27,7 @@ class RegisterController extends Controller
         parent::__construct();
     }
 
-    public function showRegistrationForm(Request $request)
+    public function showRegistrationForm(Request $request): \Illuminate\View\View
     {
         $pageTitle = "Register";
         if ($request->ref && $request->position) {
@@ -62,42 +63,8 @@ class RegisterController extends Controller
         return view('Template::user.auth.register', compact('pageTitle', 'position', 'pos', 'refUser', 'referrer', 'getPosition', 'joining'));
     }
 
-
-    protected function validator(array $data)
+    public function register(UserRegistrationRequest $request): \Illuminate\Http\RedirectResponse
     {
-
-        $passwordValidation = Password::min(6);
-
-        if (gs('secure_password')) {
-            $passwordValidation = $passwordValidation->mixedCase()->numbers()->symbols()->uncompromised();
-        }
-
-        $agree = 'nullable';
-        if (gs('agree')) {
-            $agree = 'required';
-        }
-
-        $validate     = Validator::make($data, [
-            'referBy'      => 'required|string|max:160',
-            'position'      => 'required|integer',
-            'firstname' => 'required',
-            'lastname'  => 'required',
-            'email'     => 'required|string|email|unique:users',
-            'password'  => ['required', 'confirmed', $passwordValidation],
-            'captcha'   => 'sometimes|required',
-            'agree'     => $agree
-        ], [
-            'firstname.required' => 'The first name field is required',
-            'lastname.required' => 'The last name field is required'
-        ]);
-
-        return $validate;
-    }
-
-    public function register(Request $request)
-    {
-        $this->validator($request->all())->validate();
-
         if (!gs('registration')) {
             return back();
         }
@@ -109,7 +76,7 @@ class RegisterController extends Controller
             return back()->withNotify($notify);
         }
 
-        event(new Registered($user = $this->create($request->all())));
+        event(new Registered($user = $this->create($request->validated())));
 
         $this->guard()->login($user);
 
@@ -120,65 +87,67 @@ class RegisterController extends Controller
 
     protected function create(array $data)
     {
-        $userCheck = User::where('username', $data['referBy'])->first();
-        $pos = getPosition($userCheck->id, $data['position']);
+        return DB::transaction(function () use ($data) {
+            $userCheck = User::where('username', $data['referBy'])->first();
+            $pos = getPosition($userCheck->id, $data['position']);
 
-        //User Create
-        $user            = new User();
-        $user->ref_by       = $userCheck->id;
-        $user->pos_id       = $pos['pos_id'];
-        $user->position     = $pos['position'];
-        $user->email     = strtolower($data['email']);
-        $user->firstname = $data['firstname'];
-        $user->lastname  = $data['lastname'];
-        $user->password  = Hash::make($data['password']);
-        $user->kv = gs('kv') ? Status::NO : Status::YES;
-        $user->ev = gs('ev') ? Status::NO : Status::YES;
-        $user->sv = gs('sv') ? Status::NO : Status::YES;
-        $user->ts = Status::DISABLE;
-        $user->tv = Status::ENABLE;
-        $user->save();
+            //User Create
+            $user            = new User();
+            $user->ref_by       = $userCheck->id;
+            $user->pos_id       = $pos['pos_id'];
+            $user->position     = $pos['position'];
+            $user->email     = strtolower($data['email']);
+            // Sanitize input to prevent XSS attacks
+            $user->firstname = strip_tags($data['firstname']);
+            $user->lastname  = strip_tags($data['lastname']);
+            $user->password  = Hash::make($data['password']);
+            $user->kv = gs('kv') ? Status::NO : Status::YES;
+            $user->ev = gs('ev') ? Status::NO : Status::YES;
+            $user->sv = gs('sv') ? Status::NO : Status::YES;
+            $user->ts = Status::DISABLE;
+            $user->tv = Status::ENABLE;
+            $user->save();
 
-        $adminNotification            = new AdminNotification();
-        $adminNotification->user_id   = $user->id;
-        $adminNotification->title     = 'New member registered';
-        $adminNotification->click_url = urlPath('admin.users.detail', $user->id);
-        $adminNotification->save();
-
-
-        //Login Log Create
-        $ip        = getRealIP();
-        $exist     = UserLogin::where('user_ip', $ip)->first();
-        $userLogin = new UserLogin();
-
-        if ($exist) {
-            $userLogin->longitude    = $exist->longitude;
-            $userLogin->latitude     = $exist->latitude;
-            $userLogin->city         = $exist->city;
-            $userLogin->country_code = $exist->country_code;
-            $userLogin->country      = $exist->country;
-        } else {
-            $info                    = json_decode(json_encode(getIpInfo()), true);
-            $userLogin->longitude    = @implode(',', $info['long']);
-            $userLogin->latitude     = @implode(',', $info['lat']);
-            $userLogin->city         = @implode(',', $info['city']);
-            $userLogin->country_code = @implode(',', $info['code']);
-            $userLogin->country      = @implode(',', $info['country']);
-        }
-
-        $userAgent          = osBrowser();
-        $userLogin->user_id = $user->id;
-        $userLogin->user_ip = $ip;
-
-        $userLogin->browser = @$userAgent['browser'];
-        $userLogin->os      = @$userAgent['os_platform'];
-        $userLogin->save();
+            $adminNotification            = new AdminNotification();
+            $adminNotification->user_id   = $user->id;
+            $adminNotification->title     = 'New member registered';
+            $adminNotification->click_url = urlPath('admin.users.detail', $user->id);
+            $adminNotification->save();
 
 
-        return $user;
+            //Login Log Create
+            $ip        = getRealIP();
+            $exist     = UserLogin::where('user_ip', $ip)->first();
+            $userLogin = new UserLogin();
+
+            if ($exist) {
+                $userLogin->longitude    = $exist->longitude;
+                $userLogin->latitude     = $exist->latitude;
+                $userLogin->city         = $exist->city;
+                $userLogin->country_code = $exist->country_code;
+                $userLogin->country      = $exist->country;
+            } else {
+                $info                    = json_decode(json_encode(getIpInfo()), true);
+                $userLogin->longitude    = @implode(',', $info['long']);
+                $userLogin->latitude     = @implode(',', $info['lat']);
+                $userLogin->city         = @implode(',', $info['city']);
+                $userLogin->country_code = @implode(',', $info['code']);
+                $userLogin->country      = @implode(',', $info['country']);
+            }
+
+            $userAgent          = osBrowser();
+            $userLogin->user_id = $user->id;
+            $userLogin->user_ip = $ip;
+
+            $userLogin->browser = @$userAgent['browser'];
+            $userLogin->os      = @$userAgent['os_platform'];
+            $userLogin->save();
+
+            return $user;
+        });
     }
 
-    public function checkUser(Request $request)
+    public function checkUser(Request $request): \Illuminate\Http\JsonResponse
     {
         $exist['data'] = false;
         $exist['type'] = null;
@@ -200,12 +169,14 @@ class RegisterController extends Controller
         return response($exist);
     }
 
-    public function registered(Request $request, $user)
+    public function registered(Request $request, $user): \Illuminate\Http\RedirectResponse
     {
-        $user_extras = new UserExtra();
-        $user_extras->user_id = $user->id;
-        $user_extras->save();
-        updateFreeCount($user->id);
+        DB::transaction(function () use ($user) {
+            $user_extras = new UserExtra();
+            $user_extras->user_id = $user->id;
+            $user_extras->save();
+            updateFreeCount($user->id);
+        });
         return to_route('user.home');
     }
 }

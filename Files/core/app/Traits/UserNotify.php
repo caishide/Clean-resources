@@ -2,10 +2,27 @@
 namespace App\Traits;
 
 use App\Constants\Status;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Builder;
 
+/**
+ * UserNotify - Trait for user notification and filtering
+ *
+ * Provides methods for filtering users by various criteria
+ * and generating user notification types.
+ */
 trait UserNotify
 {
-    public static function notifyToUser(){
+    /**
+     * Get notification types for users
+     *
+     * @return array<string, string>
+     */
+    public static function notifyToUser(): array
+    {
         return [
             'allUsers'              => 'All Users',
             'selectedUsers'         => 'Selected Users',
@@ -28,135 +45,194 @@ trait UserNotify
             'answerTicketUser'      => 'Answer Ticket Users',
             'closedTicketUser'      => 'Closed Ticket Users',
             'notLoginUsers'         => 'Last Few Days Not Login Users',
-            'paidUser'         => 'Users who have purchased plans',
-            'freeUser'         => 'Users who have not purchased plan',
+            'paidUser'              => 'Users who have purchased plans',
+            'freeUser'              => 'Users who have not purchased plan',
         ];
     }
 
-    public function scopeSelectedUsers($query)
+    /**
+     * Scope to filter selected users
+     */
+    public function scopeSelectedUsers(Builder $query): Builder
     {
         return $query->whereIn('id', request()->user ?? []);
     }
 
-    public function scopeAllUsers($query)
+    /**
+     * Scope to include all users
+     */
+    public function scopeAllUsers(Builder $query): Builder
     {
         return $query;
     }
 
-    public function scopeEmptyBalanceUsers($query)
+    /**
+     * Scope to filter users with empty balance
+     */
+    public function scopeEmptyBalanceUsers(Builder $query): Builder
     {
         return $query->where('balance', '<=', 0);
     }
 
-    public function scopeTwoFaDisableUsers($query)
+    /**
+     * Scope to filter users with 2FA disabled
+     */
+    public function scopeTwoFaDisableUsers(Builder $query): Builder
     {
         return $query->where('ts', Status::DISABLE);
     }
 
-    public function scopeTwoFaEnableUsers($query)
+    /**
+     * Scope to filter users with 2FA enabled
+     */
+    public function scopeTwoFaEnableUsers(Builder $query): Builder
     {
         return $query->where('ts', Status::ENABLE);
     }
 
-    public function scopeHasDepositedUsers($query)
+    /**
+     * Scope to filter users who have made deposits
+     */
+    public function scopeHasDepositedUsers(Builder $query): Builder
     {
         return $query->whereHas('deposits', function ($deposit) {
             $deposit->successful();
         });
     }
 
-    public function scopeNotDepositedUsers($query)
+    /**
+     * Scope to filter users who have not made deposits
+     */
+    public function scopeNotDepositedUsers(Builder $query): Builder
     {
         return $query->whereDoesntHave('deposits', function ($q) {
             $q->successful();
         });
     }
 
-    public function scopePendingDepositedUsers($query)
+    /**
+     * Scope to filter users with pending deposits
+     */
+    public function scopePendingDepositedUsers(Builder $query): Builder
     {
         return $query->whereHas('deposits', function ($deposit) {
             $deposit->pending();
         });
     }
 
-    public function scopeRejectedDepositedUsers($query)
+    /**
+     * Scope to filter users with rejected deposits
+     */
+    public function scopeRejectedDepositedUsers(Builder $query): Builder
     {
         return $query->whereHas('deposits', function ($deposit) {
             $deposit->rejected();
         });
     }
 
-    public function scopeTopDepositedUsers($query)
+    /**
+     * Scope to filter top deposited users
+     */
+    public function scopeTopDepositedUsers(Builder $query): Builder
     {
         return $query->whereHas('deposits', function ($deposit) {
             $deposit->successful();
-        })->withSum(['deposits'=>function($q){
+        })->withSum(['deposits' => function ($q) {
             $q->successful();
         }], 'amount')->orderBy('deposits_sum_amount', 'desc')->take(request()->number_of_top_deposited_user ?? 10);
     }
 
-    public function scopeHasWithdrawUsers($query)
+    /**
+     * Scope to filter users who have made withdrawals
+     */
+    public function scopeHasWithdrawUsers(Builder $query): Builder
     {
         return $query->whereHas('withdrawals', function ($q) {
             $q->approved();
         });
     }
 
-    public function scopePendingWithdrawUsers($query)
+    /**
+     * Scope to filter users with pending withdrawals
+     */
+    public function scopePendingWithdrawUsers(Builder $query): Builder
     {
         return $query->whereHas('withdrawals', function ($q) {
             $q->pending();
         });
     }
 
-    public function scopeRejectedWithdrawUsers($query)
+    /**
+     * Scope to filter users with rejected withdrawals
+     */
+    public function scopeRejectedWithdrawUsers(Builder $query): Builder
     {
         return $query->whereHas('withdrawals', function ($q) {
             $q->rejected();
         });
     }
 
-    public function scopePendingTicketUser($query)
+    /**
+     * Scope to filter users with pending tickets
+     */
+    public function scopePendingTicketUser(Builder $query): Builder
     {
         return $query->whereHas('tickets', function ($q) {
             $q->whereIn('status', [Status::TICKET_OPEN, Status::TICKET_REPLY]);
         });
     }
 
-    public function scopeClosedTicketUser($query)
+    /**
+     * Scope to filter users with closed tickets
+     */
+    public function scopeClosedTicketUser(Builder $query): Builder
     {
         return $query->whereHas('tickets', function ($q) {
             $q->where('status', Status::TICKET_CLOSE);
         });
     }
 
-    public function scopeAnswerTicketUser($query)
+    /**
+     * Scope to filter users with answered tickets
+     */
+    public function scopeAnswerTicketUser(Builder $query): Builder
     {
         return $query->whereHas('tickets', function ($q) {
-
             $q->where('status', Status::TICKET_ANSWER);
         });
     }
 
-    public function scopeNotLoginUsers($query)
+    /**
+     * Scope to filter users who have not logged in recently
+     */
+    public function scopeNotLoginUsers(Builder $query): Builder
     {
         return $query->whereDoesntHave('loginLogs', function ($q) {
             $q->whereDate('created_at', '>=', now()->subDays(request()->number_of_days ?? 10));
         });
     }
 
-    public function scopeKycVerified($query)
+    /**
+     * Scope to filter KYC verified users
+     */
+    public function scopeKycVerified(Builder $query): Builder
     {
         return $query->where('kv', Status::KYC_VERIFIED);
     }
 
-    public function scopePaidUser($query)
+    /**
+     * Scope to filter paid users (users with purchased plans)
+     */
+    public function scopePaidUser(Builder $query): Builder
     {
         return $query->whereNotIn('plan_id', [0]);
     }
-    public function scopeFreeUser($query)
+
+    /**
+     * Scope to filter free users (users without purchased plans)
+     */
+    public function scopeFreeUser(Builder $query): Builder
     {
         return $query->where('plan_id', 0);
     }
-
 }

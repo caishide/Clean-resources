@@ -64,6 +64,63 @@
         "route_name": "admin.product.index",
         "menu_active": "admin.product*"
     },
+    "simulation": {
+        "keyword": [
+            "Simulation",
+            "Test",
+            "Bonus",
+            "Lab"
+        ],
+        "title": "结算模拟",
+        "icon": "las la-flask",
+        "route_name": "admin.simulation.bonus",
+        "menu_active": "admin.simulation.bonus"
+    },
+    "bonus_review": {
+        "keyword": [
+            "Pending Bonus",
+            "Manual Bonus",
+            "Bonus Review"
+        ],
+        "title": "待处理奖金审核",
+        "icon": "las la-clipboard-check",
+        "route_name": "admin.bonus-review.index",
+        "menu_active": "admin.bonus-review.*"
+    },
+    "adjustment": {
+        "keyword": [
+            "Adjustment",
+            "Refund",
+            "Correction"
+        ],
+        "title": "调整批次",
+        "icon": "las la-undo-alt",
+        "route_name": "admin.adjustment-batches.index",
+        "menu_active": "admin.adjustment-batches.*"
+    },
+    "exports": {
+        "keyword": [
+            "Export",
+            "Report",
+            "CSV"
+        ],
+        "title": "报表导出",
+        "icon": "las la-file-csv",
+        "route_name": "admin.exports.weekly",
+        "menu_active": "admin.exports.*"
+    },
+    "bonus_config": {
+        "keyword": [
+            "Bonus",
+            "Config",
+            "Parameter",
+            "Rate"
+        ],
+        "title": "奖金参数",
+        "icon": "las la-sliders-h",
+        "route_name": "admin.bonus-config.index",
+        "menu_active": "admin.bonus-config.*"
+    },
     "order": {
         "keyword": [
             "Order",

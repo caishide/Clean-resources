@@ -15,22 +15,59 @@ use App\Models\SupportTicket;
 use App\Models\SupportMessage;
 use App\Models\AdminNotification;
 use Illuminate\Support\Facades\Cookie;
+use Illuminate\Support\Facades\Log;
 
 
 class SiteController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $reference = @$_GET['reference'];
+        // Validate and sanitize the reference parameter to prevent IDOR attacks
+        $reference = $request->input('reference');
+
         if ($reference) {
-            session()->put('reference', $reference);
+            // Validate the reference parameter
+            $validated = $request->validate([
+                'reference' => 'sometimes|string|max:50|regex:/^[a-zA-Z0-9_-]+$/',
+            ], [
+                'reference.regex' => 'The reference field may only contain letters, numbers, underscores, and hyphens.',
+                'reference.max' => 'The reference field must not exceed 50 characters.',
+            ]);
+
+            // Sanitize the validated reference
+            $sanitizedReference = strip_tags(trim($validated['reference']));
+
+            // Additional check: ensure reference doesn't contain path traversal or other malicious patterns
+            if (preg_match('/[\.\/\\\\:\*\?"<>\|]/', $sanitizedReference)) {
+                // Log suspicious attempt
+                Log::channel('security')->warning('Suspicious reference parameter detected', [
+                    'reference' => $reference,
+                    'ip' => $request->ip(),
+                    'user_agent' => $request->userAgent(),
+                    'uri' => $request->fullUrl(),
+                ]);
+
+                // Reject suspicious reference
+                $notify[] = ['error', 'Invalid reference parameter.'];
+                return back()->withNotify($notify)->withInput();
+            }
+
+            // Store the sanitized reference in session
+            session()->put('reference', $sanitizedReference);
+
+            // Log successful reference capture (without sensitive data)
+            Log::channel('security')->info('Reference parameter stored', [
+                'reference_length' => strlen($sanitizedReference),
+                'ip' => $request->ip(),
+                'user_agent' => $request->userAgent(),
+            ]);
         }
 
         $pageTitle   = 'Home';
         $sections    = Page::where('tempname', activeTemplate())->where('slug', '/')->first();
         $seoContents = @$sections->seo_content;
         $seoImage    = @$seoContents->image ? getImage(getFilePath('seo') . '/' . @$seoContents->image, getFileSize('seo')) : null;
-        
+
         return view('Template::home', compact('pageTitle', 'sections', 'seoContents', 'seoImage'));
     }
 

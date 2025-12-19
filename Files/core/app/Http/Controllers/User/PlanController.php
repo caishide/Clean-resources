@@ -9,17 +9,42 @@ use App\Models\UserExtra;
 use App\Models\Transaction;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
+use Illuminate\View\View;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Database\Eloquent\Builder;
 
+/**
+ * PlanController - Handles user plan subscription and BV management
+ *
+ * Manages plan purchases, binary commissions, and BV logs
+ */
 class PlanController extends Controller
 {
-    function planIndex()
+    /** @var int No plan purchased (free user) */
+    private const NO_PLAN = 0;
+
+    /** @var int Minimum tree commission to process */
+    private const MIN_TREE_COMMISSION = 0;
+
+    /**
+     * Display available plans
+     *
+     * @return View
+     */
+    public function planIndex(): View
     {
         $pageTitle = "Plans";
         $plans     = Plan::orderBy('price', 'asc')->active()->get();
         return view('Template::user.plan', compact('pageTitle', 'plans'));
     }
 
-    function planStore(Request $request)
+    /**
+     * Purchase a plan
+     *
+     * @param Request $request
+     * @return RedirectResponse
+     */
+    public function planStore(Request $request): RedirectResponse
     {
         $request->validate([
             'plan_id' => 'required|integer',
@@ -62,7 +87,7 @@ class PlanController extends Controller
             'post_balance' => showAmount($user->balance, currencyFormat: false),
         ]);
 
-        if ($oldPlan == 0) {
+        if ($oldPlan == self::NO_PLAN) {
             updatePaidCount($user->id);
         }
 
@@ -70,7 +95,7 @@ class PlanController extends Controller
 
         updateBV($user->id, $plan->bv, $details);
 
-        if ($plan->tree_com > 0) {
+        if ($plan->tree_com > self::MIN_TREE_COMMISSION) {
             treeComission($user->id, $plan->tree_com, $details);
         }
 
@@ -80,7 +105,12 @@ class PlanController extends Controller
         return back()->withNotify($notify);
     }
 
-    public function binaryCom()
+    /**
+     * Display binary commission transactions
+     *
+     * @return View
+     */
+    public function binaryCom(): View
     {
         $pageTitle    = "Binary Commission";
         $logs         = Transaction::where('user_id', auth()->id())->where('remark', 'binary_commission')->orderBy('id', 'DESC')->paginate(getPaginate());
@@ -88,14 +118,25 @@ class PlanController extends Controller
         return view('Template::user.transactions', compact('pageTitle', 'logs', 'emptyMessage'));
     }
 
-    public function binarySummery()
+    /**
+     * Display binary summary for user
+     *
+     * @return View
+     */
+    public function binarySummery(): View
     {
         $pageTitle = "Binary Summery";
         $logs      = UserExtra::where('user_id', auth()->id())->firstOrFail();
         return view('Template::user.binarySummery', compact('pageTitle', 'logs'));
     }
 
-    public function bvlog(Request $request)
+    /**
+     * Display BV logs with optional type filter
+     *
+     * @param Request $request
+     * @return View
+     */
+    public function bvlog(Request $request): View
     {
         if ($request->type) {
             if ($request->type == 'leftBV') {
@@ -119,7 +160,13 @@ class PlanController extends Controller
         return view('Template::user.bvLog', compact('pageTitle', 'logs'));
     }
 
-    protected function bvData($scope = null)
+    /**
+     * Get BV data with optional scope
+     *
+     * @param string|null $scope
+     * @return Builder
+     */
+    protected function bvData(?string $scope = null): Builder
     {
         if ($scope) {
             $logs = BvLog::$scope();
@@ -129,14 +176,24 @@ class PlanController extends Controller
         return $logs;
     }
 
-    public function myRefLog()
+    /**
+     * Display user's referral list
+     *
+     * @return View
+     */
+    public function myRefLog(): View
     {
         $pageTitle = "My Referral";
         $logs      = User::where('ref_by', auth()->id())->latest()->paginate(getPaginate());
         return view('Template::user.myRef', compact('pageTitle', 'logs'));
     }
 
-    public function myTree()
+    /**
+     * Display user's binary tree structure
+     *
+     * @return View
+     */
+    public function myTree(): View
     {
         $tree      = showTreePage(auth()->user()->id);
         $pageTitle = "My Tree";

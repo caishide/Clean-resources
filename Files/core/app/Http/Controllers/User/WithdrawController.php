@@ -29,6 +29,10 @@ class WithdrawController extends Controller
         ]);
         $method = WithdrawMethod::where('id', $request->method_code)->active()->firstOrFail();
         $user = auth()->user();
+        if ($user->balance < 0) {
+            $notify[] = ['error', '余额为负，暂不可提现'];
+            return back()->withNotify($notify)->withInput($request->all());
+        }
         if ($request->amount < $method->min_limit) {
             $notify[] = ['error', 'Your requested amount is smaller than minimum amount'];
             return back()->withNotify($notify)->withInput($request->all());
@@ -101,6 +105,10 @@ class WithdrawController extends Controller
             }
         }
 
+        if ($user->balance < 0) {
+            $notify[] = ['error', '余额为负，暂不可提现'];
+            return back()->withNotify($notify)->withInput($request->all());
+        }
         if ($withdraw->amount > $user->balance) {
             $notify[] = ['error', 'Your request amount is larger then your current balance.'];
             return back()->withNotify($notify)->withInput($request->all());

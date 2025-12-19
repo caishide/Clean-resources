@@ -15,6 +15,7 @@ use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Schema;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -31,6 +32,16 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // 测试环境强制使用 array cache，避免未安装 redis 扩展导致启动失败
+        if (app()->environment('testing')) {
+            config(['cache.default' => 'array']);
+        }
+
+        // 测试环境无 general_settings 表时跳过后续初始化
+        if (app()->environment('testing') && !Schema::hasTable('general_settings')) {
+            return;
+        }
+
         if (!cache()->get('SystemInstalled')) {
             $envFilePath = base_path('.env');
             if (!file_exists($envFilePath)) {

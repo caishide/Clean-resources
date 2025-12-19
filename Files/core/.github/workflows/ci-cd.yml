@@ -1,0 +1,488 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ master, develop ]
+  pull_request:
+    branches: [ master ]
+
+env:
+  PHP_VERSION: '8.2'
+  NODE_VERSION: '18'
+  MYSQL_VERSION: '8.0'
+
+jobs:
+  # ==========================================================================
+  # Code Quality & Security Scanning
+  # ==========================================================================
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: mbstring, xml, ctype, json, iconv, intl, pdo_mysql, dom, filter, gd, fileinfo, bcmath
+          tools: composer:v2
+
+      - name: Cache Composer packages
+        id: composer-cache
+        uses: actions/cache@v3
+        with:
+          path: vendor
+          key: ${{ runner.os }}-php-${{ hashFiles('**/composer.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-php-
+
+      - name: Install dependencies
+        run: composer install --no-progress --no-scripts --prefer-dist
+
+      - name: Run security audit
+        run: composer audit --format=json --output-file=security-audit.json || true
+
+      - name: Run Psalm static analysis
+        run: ./vendor/bin/psalm --output-format=github --no-progress --no-cache
+
+      - name: Run PHPStan analysis
+        run: ./vendor/bin/phpstan analyse --error-format=github --no-progress --no-cache
+
+      - name: Upload security audit results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: security-audit
+          path: security-audit.json
+
+  # ==========================================================================
+  # Code Style & Linting
+  # ==========================================================================
+  code-quality:
+    name: Code Quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: mbstring, xml, ctype, json, iconv, intl, pdo_mysql, dom, filter, gd, fileinfo, bcmath
+          tools: composer:v2
+
+      - name: Cache Composer packages
+        uses: actions/cache@v3
+        with:
+          path: vendor
+          key: ${{ runner.os }}-php-${{ hashFiles('**/composer.lock') }}
+
+      - name: Install dependencies
+        run: composer install --no-progress --no-scripts --prefer-dist
+
+      - name: Run PHP CS Fixer
+        run: ./vendor/bin/php-cs-fixer fix --dry-run --diff --format=github
+
+      - name: Run PHP CodeSniffer
+        run: ./vendor/bin/phpcs --report=checkstyle --report-file=phpcs-report.xml
+
+      - name: Upload code quality reports
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: code-quality-reports
+          path: |
+            phpcs-report.xml
+
+  # ==========================================================================
+  # Unit & Feature Tests
+  # ==========================================================================
+  test:
+    name: Test Suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: [security-scan, code-quality]
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: false
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: laravel_test
+        ports:
+          - 3306/tcp
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379/tcp
+        options: --health-cmd="redis-cli ping" --health-interval=10s --health-timeout=5s --health-retries=3
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: mbstring, xml, ctype, json, iconv, intl, pdo_mysql, dom, filter, gd, fileinfo, bcmath, redis
+          tools: composer:v2
+
+      - name: Cache Composer packages
+        uses: actions/cache@v3
+        with:
+          path: vendor
+          key: ${{ runner.os }}-php-${{ hashFiles('**/composer.lock') }}
+
+      - name: Install dependencies
+        run: composer install --no-progress --no-scripts --prefer-dist
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Generate key
+        run: php artisan key:generate
+
+      - name: Create .env.testing
+        run: |
+          cp .env .env.backup
+          cat >> .env.testing << EOF
+          APP_ENV=testing
+          APP_KEY=base64:$(php -r 'echo base64_encode(random_bytes(32));')
+          DB_CONNECTION=mysql
+          DB_HOST=127.0.0.1
+          DB_PORT=3306
+          DB_DATABASE=laravel_test
+          DB_USERNAME=root
+          DB_PASSWORD=root
+          REDIS_HOST=127.0.0.1
+          REDIS_PORT=6379
+          CACHE_DRIVER=redis
+          SESSION_DRIVER=redis
+          QUEUE_CONNECTION=redis
+          EOF
+
+      - name: Run database migrations
+        run: php artisan migrate:fresh --env=testing --force
+
+      - name: Run unit tests
+        run: php artisan test --env=testing --no-coverage --verbose
+
+      - name: Run feature tests
+        run: php artisan test --env=testing --no-coverage --verbose
+
+      - name: Run security tests
+        run: |
+          php artisan test --filter=PaymentGatewaySecurityTest --no-coverage
+          php artisan test --filter=FileDownloadSecurityTest --no-coverage
+          php artisan test --filter=AdminImpersonationSecurityTest --no-coverage
+          php artisan test --filter=IDORSecurityTest --no-coverage
+          php artisan test --filter=PasswordPolicySecurityTest --no-coverage
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: test-results
+          path: storage/logs/testing.log
+
+      - name: Generate test coverage
+        run: |
+          php artisan test --env=testing --coverage-clover coverage.xml
+          if [ -f coverage.xml ]; then
+            curl -L https://github.com/codecov/codecovbash | bash -s -- -f coverage.xml
+          fi
+
+  # ==========================================================================
+  # Build Assets
+  # ==========================================================================
+  build:
+    name: Build Assets
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build assets
+        run: npm run build
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-artifacts
+          path: |
+            public/build/
+            node_modules/
+          retention-days: 1
+
+  # ==========================================================================
+  # Security Scan (DAST)
+  # ==========================================================================
+  dast-scan:
+    name: DAST Security Scan
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/master'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Start application
+        run: |
+          docker-compose up -d
+          sleep 30
+          timeout 60 bash -c 'until curl -f http://localhost:8000; do sleep 2; done'
+
+      - name: Run OWASP ZAP Baseline Scan
+        uses: zaproxy/action-baseline@v0.12.0
+        with:
+          target: 'http://localhost:8000'
+          rules_file_name: '.zap/rules.tsv'
+          cmd_options: '-a'
+
+      - name: Upload ZAP scan results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: zap-scan-results
+          path: |
+            report.html
+            report_json.json
+
+  # ==========================================================================
+  # Deploy to Staging
+  # ==========================================================================
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [build, dast-scan]
+    if: github.ref == 'refs/heads/develop'
+    environment: staging
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: build-artifacts
+          path: public/build/
+
+      - name: Deploy to staging server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.STAGING_HOST }}
+          username: ${{ secrets.STAGING_USER }}
+          key: ${{ secrets.STAGING_SSH_KEY }}
+          port: ${{ secrets.STAGING_PORT }}
+          script: |
+            cd /var/www/staging
+            git pull origin develop
+            cp -r public/build/* public/build/
+            composer install --no-dev --optimize-autoloader
+            php artisan migrate --force
+            php artisan config:cache
+            php artisan route:cache
+            php artisan view:cache
+            php artisan event:cache
+            php artisan storage:link
+            sudo systemctl reload php8.2-fpm
+            sudo systemctl reload nginx
+            echo "Deployment to staging completed successfully"
+
+      - name: Run smoke tests
+        run: |
+          sleep 10
+          curl -f http://staging.example.com/health || exit 1
+          curl -f http://staging.example.com/api/health || exit 1
+
+  # ==========================================================================
+  # Deploy to Production
+  # ==========================================================================
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [build, test]
+    if: github.ref == 'refs/heads/master'
+    environment: production
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: build-artifacts
+          path: public/build/
+
+      - name: Create deployment package
+        run: |
+          tar -czf deployment-package.tar.gz \
+            --exclude='.git' \
+            --exclude='node_modules' \
+            --exclude='.env' \
+            --exclude='storage/logs/*' \
+            --exclude='storage/framework/cache/*' \
+            --exclude='storage/framework/sessions/*' \
+            --exclude='storage/framework/views/*' \
+            .
+
+      - name: Deploy to production server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.PRODUCTION_HOST }}
+          username: ${{ secrets.PRODUCTION_USER }}
+          key: ${{ secrets.PRODUCTION_SSH_KEY }}
+          port: ${{ secrets.PRODUCTION_PORT }}
+          script: |
+            # Create backup
+            BACKUP_DIR="/var/backups/laravel/$(date +%Y%m%d_%H%M%S)"
+            mkdir -p $BACKUP_DIR
+            cp -r /var/www/laravel $BACKUP_DIR/
+            echo "Backup created at $BACKUP_DIR"
+
+            # Download deployment package
+            cd /var/www
+            curl -L -o deployment-package.tar.gz https://${{ secrets.DEPLOYMENT_SERVER }}/deployment-package.tar.gz
+
+            # Extract and deploy
+            cd /var/www/laravel
+            tar -xzf ../deployment-package.tar.gz --strip-components=1
+
+            # Install dependencies
+            composer install --no-dev --optimize-autoloader
+
+            # Run migrations
+            php artisan migrate --force
+
+            # Clear and cache
+            php artisan config:cache
+            php artisan route:cache
+            php artisan view:cache
+            php artisan event:cache
+            php artisan storage:link
+
+            # Reload services
+            sudo systemctl reload php8.2-fpm
+            sudo systemctl reload nginx
+            sudo systemctl reload supervisor
+
+            echo "Deployment to production completed successfully"
+
+      - name: Verify deployment
+        run: |
+          sleep 10
+          curl -f https://example.com/health || exit 1
+          curl -f https://example.com/api/health || exit 1
+          curl -f https://example.com/api/security-test || exit 1
+
+      - name: Notify deployment success
+        uses: 8398a7/action-slack@v3
+        if: success()
+        with:
+          status: success
+          text: '🚀 Production deployment successful!'
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+
+      - name: Notify deployment failure
+        uses: 8398a7/action-slack@v3
+        if: failure()
+        with:
+          status: failure
+          text: '❌ Production deployment failed!'
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+
+  # ==========================================================================
+  # Post-Deployment Tasks
+  # ==========================================================================
+  post-deployment:
+    name: Post-Deployment Tasks
+    runs-on: ubuntu-latest
+    needs: deploy-production
+    if: always() && needs.deploy-production.result == 'success'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run database seeders (if needed)
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.PRODUCTION_HOST }}
+          username: ${{ secrets.PRODUCTION_USER }}
+          key: ${{ secrets.PRODUCTION_SSH_KEY }}
+          port: ${{ secrets.PRODUCTION_PORT }}
+          script: |
+            cd /var/www/laravel
+            php artisan db:seed --force --class=ProductionSeeder || echo "No seeder to run"
+
+      - name: Clear application cache
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.PRODUCTION_HOST }}
+          username: ${{ secrets.PRODUCTION_USER }}
+          key: ${{ secrets.PRODUCTION_SSH_KEY }}
+          port: ${{ secrets.PRODUCTION_PORT }}
+          script: |
+            cd /var/www/laravel
+            php artisan cache:clear
+            php artisan config:clear
+            php artisan view:clear
+
+      - name: Warm up caches
+        run: |
+          curl -f https://example.com/ || true
+          curl -f https://example.com/login || true
+          curl -f https://example.com/dashboard || true
+          curl -f https://example.com/api/health || true
+
+      - name: Run health checks
+        run: |
+          for i in {1..10}; do
+            echo "Health check attempt $i"
+            if curl -f https://example.com/health; then
+              echo "Application is healthy"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "Health checks failed"
+          exit 1
+
+      - name: Create GitHub deployment
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./public

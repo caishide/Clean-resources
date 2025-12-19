@@ -1,0 +1,238 @@
+<?php
+
+namespace App\Services;
+
+use App\Models\User;
+use App\Models\Order;
+use App\Models\PendingBonus;
+use App\Models\Transaction;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+
+class BonusService
+{
+    /**
+     * 发放直推奖（20%）
+     * 
+     * @param Order $order 订单
+     * @return array 结果数组 ['status' => 'success|error', 'type' => 'paid|pending', 'amount' => float]
+     */
+    public function issueDirectBonus(Order $order): array
+    {
+        $sponsor = User::find($order->ref_by);
+        if (!$sponsor) {
+            return ['status' => 'error', 'message' => 'Sponsor not found'];
+        }
+
+        $bonusAmount = ($order->quantity * 3000) * 0.20;
+
+        // 检查收款人是否已激活（plan_id >= 1 表示已激活）
+        if ($sponsor->plan_id >= 1) {
+            // 已激活：直接入账
+            Transaction::create([
+                'user_id' => $sponsor->id,
+                'trx_type' => '+',
+                'amount' => $bonusAmount,
+                'remark' => 'direct_bonus',
+                'source_type' => 'order',
+                'source_id' => $order->trx,
+                'details' => json_encode(['order_id' => $order->id])
+            ]);
+
+            return ['status' => 'success', 'type' => 'paid', 'amount' => $bonusAmount];
+        } else {
+            // 未激活：进入待处理
+            PendingBonus::create([
+                'recipient_id' => $sponsor->id,
+                'bonus_type' => 'direct',
+                'amount' => $bonusAmount,
+                'source_type' => 'order',
+                'source_id' => $order->trx,
+                'accrued_week_key' => $this->getCurrentWeekKey(),
+                'status' => 'pending',
+                'release_mode' => 'auto'
+            ]);
+
+            return ['status' => 'success', 'type' => 'pending', 'amount' => $bonusAmount];
+        }
+    }
+
+    /**
+     * 触发层碰奖
+     * 
+     * @param Order $order 订单
+     * @return array 结果数组
+     */
+    public function triggerLevelPairBonus(Order $order): array
+    {
+        // TODO: 实现层碰奖逻辑
+        // 1. 回溯安置链
+        // 2. 计算相对层级和侧位
+        // 3. 更新user_level_hits
+        // 4. 触发层碰奖（25%）
+        
+        $results = [];
+        $upline = $this->getUplineChain($order->user);
+        
+        foreach ($upline as $position => $uplineUser) {
+            $level = $uplineUser['level'];
+            
+            // 检查是否首次点亮该层该侧
+            $levelHit = \App\Models\UserLevelHit::firstOrCreate(
+                [
+                    'user_id' => $uplineUser['user_id'],
+                    'level' => $level
+                ],
+                [
+                    'position' => $position,
+                    'amount' => 0,
+                    'first_hit_at' => now()
+                ]
+            );
+            
+            // 更新累计PV
+            $pvAmount = $order->quantity * 3000;
+            $levelHit->amount += $pvAmount;
+            $levelHit->save();
+            
+            // 检查是否两侧都已点亮（触发层碰奖）
+            $leftHit = \App\Models\UserLevelHit::where('user_id', $uplineUser['user_id'])
+                ->where('level', $level)
+                ->where('position', 1)
+                ->first();
+                
+            $rightHit = \App\Models\UserLevelHit::where('user_id', $uplineUser['user_id'])
+                ->where('level', $level)
+                ->where('position', 2)
+                ->first();
+                
+            if ($leftHit && $rightHit) {
+                // 触发层碰奖
+                $levelPairAmount = $pvAmount * 0.25;
+                $sponsor = $uplineUser['user'];
+                
+                if ($sponsor->plan_id >= 1) {
+                    // 已激活：直接入账
+                    Transaction::create([
+                        'user_id' => $sponsor->id,
+                        'trx_type' => '+',
+                        'amount' => $levelPairAmount,
+                        'remark' => 'level_pair_bonus',
+                        'source_type' => 'order',
+                        'source_id' => $order->trx,
+                        'details' => json_encode(['order_id' => $order->id, 'level' => $level])
+                    ]);
+                } else {
+                    // 未激活：进入待处理
+                    PendingBonus::create([
+                        'recipient_id' => $sponsor->id,
+                        'bonus_type' => 'level_pair',
+                        'amount' => $levelPairAmount,
+                        'source_type' => 'order',
+                        'source_id' => $order->trx,
+                        'accrued_week_key' => $this->getCurrentWeekKey(),
+                        'status' => 'pending',
+                        'release_mode' => 'auto'
+                    ]);
+                }
+                
+                $results[] = [
+                    'user_id' => $sponsor->id,
+                    'level' => $level,
+                    'amount' => $levelPairAmount
+                ];
+            }
+        }
+        
+        return $results;
+    }
+
+    /**
+     * 获取安置链
+     */
+    private function getUplineChain(User $user): array
+    {
+        $chain = [];
+        $current = $user;
+        $level = 0;
+
+        while ($current->ref_by && $level < 50) { // 限制最大50层
+            $sponsor = User::find($current->ref_by);
+            if (!$sponsor) break;
+
+            // 判断左右区（这里需要根据实际业务逻辑实现）
+            $position = $this->getPlacementPosition($sponsor, $current->id);
+            if ($position) {
+                $chain[$position] = [
+                    'user_id' => $sponsor->id,
+                    'user' => $sponsor,
+                    'level' => $level + 1
+                ];
+            }
+
+            $current = $sponsor;
+            $level++;
+        }
+
+        return $chain;
+    }
+
+    /**
+     * 获取用户在Sponsor下的位置
+     */
+    private function getPlacementPosition(User $sponsor, $childId): ?int
+    {
+        // TODO: 根据实际业务逻辑判断左/右区
+        // 这里需要根据项目的树形结构设计来实现
+        return null;
+    }
+
+    /**
+     * 获取当前周键
+     */
+    private function getCurrentWeekKey(): string
+    {
+        return date('Y-W');
+    }
+
+    /**
+     * 用户激活时释放待处理奖金
+     */
+    public function releasePendingBonusesOnActivation(int $userId): array
+    {
+        $pendingBonuses = PendingBonus::where('recipient_id', $userId)
+            ->where('status', 'pending')
+            ->where('release_mode', 'auto')
+            ->get();
+
+        $released = [];
+
+        foreach ($pendingBonuses as $bonus) {
+            DB::transaction(function () use ($bonus, &$released) {
+                // 写入transactions
+                $trx = Transaction::create([
+                    'user_id' => $bonus->recipient_id,
+                    'trx_type' => '+',
+                    'amount' => $bonus->amount,
+                    'remark' => 'pending_bonus_release',
+                    'source_type' => $bonus->source_type,
+                    'source_id' => $bonus->source_id,
+                    'details' => json_encode(['pending_bonus_id' => $bonus->id])
+                ]);
+
+                // 更新pending_bonuses状态
+                $bonus->status = 'released';
+                $bonus->released_trx = $trx->id;
+                $bonus->save();
+
+                $released[] = [
+                    'bonus_type' => $bonus->bonus_type,
+                    'amount' => $bonus->amount,
+                    'trx_id' => $trx->id
+                ];
+            });
+        }
+
+        return $released;
+    }
+}

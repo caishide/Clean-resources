@@ -366,6 +366,9 @@
 
 @push('script')
     <script>
+        @php
+            $copyInstruction = __('admin.gateway.copy_instruction');
+        @endphp
         (function($) {
             "use strict";
 
@@ -406,7 +409,7 @@
                         input.blur();
                         notify('success', `Copied: ${copybtn.closest('.input-group').find('input').val()}`);
                     } catch (err) {
-                        alert('Please press Ctrl/Cmd + C to copy');
+                        alert(@json($copyInstruction));
                     }
                 }
             });

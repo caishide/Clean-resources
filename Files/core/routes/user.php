@@ -3,26 +3,26 @@
 use Illuminate\Support\Facades\Route;
 
 Route::namespace('User\Auth')->name('user.')->middleware('guest')->group(function () {
-    Route::controller('LoginController')->group(function () {
+    Route::controller('LoginController')->middleware(['throttle:5,1'])->group(function () {
         Route::get('/login', 'showLoginForm')->name('login');
         Route::post('/login', 'login');
         Route::get('logout', 'logout')->middleware('auth')->withoutMiddleware('guest')->name('logout');
     });
 
-    Route::controller('RegisterController')->middleware(['guest'])->group(function () {
+    Route::controller('RegisterController')->middleware(['guest', 'throttle:3,1'])->group(function () {
         Route::get('register', 'showRegistrationForm')->name('register');
         Route::post('register', 'register');
         Route::post('check-user', 'checkUser')->name('checkUser')->withoutMiddleware('guest');
     });
 
-    Route::controller('ForgotPasswordController')->prefix('password')->name('password.')->group(function () {
+    Route::controller('ForgotPasswordController')->prefix('password')->middleware(['throttle:3,1'])->name('password.')->group(function () {
         Route::get('reset', 'showLinkRequestForm')->name('request');
         Route::post('email', 'sendResetCodeEmail')->name('email');
         Route::get('code-verify', 'codeVerify')->name('code.verify');
         Route::post('verify-code', 'verifyCode')->name('verify.code');
     });
 
-    Route::controller('ResetPasswordController')->group(function () {
+    Route::controller('ResetPasswordController')->middleware(['throttle:5,1'])->group(function () {
         Route::post('password/reset', 'reset')->name('password.update');
         Route::get('password/reset/{token}', 'showResetForm')->name('password.reset');
     });
@@ -66,7 +66,7 @@ Route::middleware('auth')->name('user.')->group(function () {
 
                 //Balance Transfer
                 Route::get('transfer', 'indexTransfer')->name('balance.transfer');
-                Route::post('transfer', 'balanceTransfer')->name('balance.transfer');
+                Route::post('transfer', 'balanceTransfer');
 
                 Route::post('search-user', 'searchUser')->name('search.user');
 

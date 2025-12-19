@@ -38,32 +38,35 @@
                         @if (gs('multi_language'))
                             @php
                                 $language = App\Models\Language::all();
-                                $selectLang = $language->where('code', config('app.locale'))->first();
+                                $selectLang = $language->firstWhere('code', config('app.locale')) ?? $language->first();
                                 $currentLang = session('lang')
-                                    ? $language->where('code', session('lang'))->first()
-                                    : $language->where('is_default', Status::YES)->first();
+                                    ? $language->firstWhere('code', session('lang'))
+                                    : $language->firstWhere('is_default', Status::YES);
+                                $currentLang = $currentLang ?? $selectLang;
                             @endphp
 
-                            <div class="custom--dropdown">
-                                <div class="custom--dropdown__selected dropdown-list__item">
-                                    <div class="thumb">
-                                        <img src="{{ getImage(getFilePath('language') . '/' . $currentLang->image, getFileSize('language')) }}"
-                                            alt="image">
+                            @if ($language->count() && $currentLang)
+                                <div class="custom--dropdown">
+                                    <div class="custom--dropdown__selected dropdown-list__item">
+                                        <div class="thumb">
+                                            <img src="{{ getImage(getFilePath('language') . '/' . $currentLang->image, getFileSize('language')) }}"
+                                                alt="image">
+                                        </div>
+                                        <span class="text"> {{ __(@$selectLang?->name ?? $currentLang->name) }} </span>
                                     </div>
-                                    <span class="text"> {{ __(@$selectLang->name) }} </span>
+                                    <ul class="dropdown-list">
+                                        @foreach ($language as $item)
+                                            <li class="dropdown-list__item" data-value="en">
+                                                <a class="thumb" href="{{ route('lang', $item->code) }}"> <img
+                                                        src="{{ getImage(getFilePath('language') . '/' . $item->image, getFileSize('language')) }}"
+                                                        alt="image">
+                                                    <span class="text"> {{ __($item->name) }} </span>
+                                                </a>
+                                            </li>
+                                        @endforeach
+                                    </ul>
                                 </div>
-                                <ul class="dropdown-list">
-                                    @foreach ($language as $item)
-                                        <li class="dropdown-list__item" data-value="en">
-                                            <a class="thumb" href="{{ route('lang', $item->code) }}"> <img
-                                                    src="{{ getImage(getFilePath('language') . '/' . $item->image, getFileSize('language')) }}"
-                                                    alt="image">
-                                                <span class="text"> {{ __($item->name) }} </span>
-                                            </a>
-                                        </li>
-                                    @endforeach
-                                </ul>
-                            </div>
+                            @endif
                         @endif
                     </li>
 

@@ -6,6 +6,8 @@ use App\Constants\Status;
 use App\Models\Deposit;
 use App\Http\Controllers\Gateway\PaymentController;
 use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class ProcessController extends Controller
 {
@@ -41,38 +43,77 @@ class ProcessController extends Controller
 
         return json_encode($send);
     }
-    public function ipn()
+    public function ipn(Request $request)
     {
-        $deposit = Deposit::where('trx', $_POST['PAYMENT_ID'])->orderBy('id', 'DESC')->first();
+        // Validate and sanitize input
+        $validated = $request->validate([
+            'PAYMENT_ID' => 'required|string',
+            'PAYEE_ACCOUNT' => 'required|string',
+            'PAYMENT_AMOUNT' => 'required|numeric',
+            'PAYMENT_UNITS' => 'required|string',
+            'PAYMENT_BATCH_NUM' => 'required|string',
+            'PAYER_ACCOUNT' => 'required|string',
+            'V2_HASH' => 'required|string',
+            'TIMESTAMPGMT' => 'required|string',
+        ]);
+
+        Log::channel('gateway')->info('PerfectMoney IPN received', [
+            'payment_id' => $validated['PAYMENT_ID'],
+            'amount' => $validated['PAYMENT_AMOUNT'],
+            'units' => $validated['PAYMENT_UNITS'],
+            'ip' => $request->ip(),
+        ]);
+
+        $deposit = Deposit::where('trx', $validated['PAYMENT_ID'])->orderBy('id', 'DESC')->first();
+        if (!$deposit) {
+            Log::channel('gateway')->error('PerfectMoney IPN: Deposit not found', ['payment_id' => $validated['PAYMENT_ID']]);
+            abort(404);
+        }
+
         $pmAcc = json_decode($deposit->gatewayCurrency()->gateway_parameter);
         $passphrase = strtoupper(md5($pmAcc->passphrase));
 
         define('ALTERNATE_PHRASE_HASH', $passphrase);
-        define('PATH_TO_LOG', '/somewhere/out/of/document_root/');
         $string =
-            $_POST['PAYMENT_ID'] . ':' . $_POST['PAYEE_ACCOUNT'] . ':' .
-            $_POST['PAYMENT_AMOUNT'] . ':' . $_POST['PAYMENT_UNITS'] . ':' .
-            $_POST['PAYMENT_BATCH_NUM'] . ':' .
-            $_POST['PAYER_ACCOUNT'] . ':' . ALTERNATE_PHRASE_HASH . ':' .
-            $_POST['TIMESTAMPGMT'];
+            $validated['PAYMENT_ID'] . ':' . $validated['PAYEE_ACCOUNT'] . ':' .
+            $validated['PAYMENT_AMOUNT'] . ':' . $validated['PAYMENT_UNITS'] . ':' .
+            $validated['PAYMENT_BATCH_NUM'] . ':' .
+            $validated['PAYER_ACCOUNT'] . ':' . ALTERNATE_PHRASE_HASH . ':' .
+            $validated['TIMESTAMPGMT'];
 
         $hash = strtoupper(md5($string));
-        $hash2 = $_POST['V2_HASH'];
+        $hash2 = $validated['V2_HASH'];
 
         if ($hash == $hash2) {
+            Log::channel('gateway')->info('PerfectMoney IPN: Hash verified', ['payment_id' => $validated['PAYMENT_ID']]);
 
-            foreach ($_POST as $key => $value) {
-                $details[$key] = $value;
-            }
+            $details = $request->all();
             $deposit->detail = $details;
             $deposit->save();
 
-            $amount = $_POST['PAYMENT_AMOUNT'];
-            $unit = $_POST['PAYMENT_UNITS'];
-            if ($_POST['PAYEE_ACCOUNT'] == $pmAcc->wallet_id && $unit == $deposit->method_currency && $amount == round($deposit->final_amount,2) && $deposit->status == Status::PAYMENT_INITIATE) {
-                //Update User Data
+            $amount = $validated['PAYMENT_AMOUNT'];
+            $unit = $validated['PAYMENT_UNITS'];
+            if ($validated['PAYEE_ACCOUNT'] == $pmAcc->wallet_id && $unit == $deposit->method_currency && $amount == round($deposit->final_amount,2) && $deposit->status == Status::PAYMENT_INITIATE) {
+                Log::channel('gateway')->info('PerfectMoney IPN: Payment successful', ['payment_id' => $validated['PAYMENT_ID']]);
                 PaymentController::userDataUpdate($deposit);
+            } else {
+                Log::channel('gateway')->warning('PerfectMoney IPN: Payment validation failed', [
+                    'payment_id' => $validated['PAYMENT_ID'],
+                    'expected_account' => $pmAcc->wallet_id,
+                    'received_account' => $validated['PAYEE_ACCOUNT'],
+                    'expected_unit' => $deposit->method_currency,
+                    'received_unit' => $unit,
+                    'expected_amount' => round($deposit->final_amount,2),
+                    'received_amount' => $amount,
+                    'deposit_status' => $deposit->status
+                ]);
             }
+        } else {
+            Log::channel('gateway')->error('PerfectMoney IPN: Hash verification failed', [
+                'payment_id' => $validated['PAYMENT_ID'],
+                'expected_hash' => $hash,
+                'received_hash' => $hash2
+            ]);
         }
     }
 }

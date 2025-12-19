@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use App\Models\Language;
 use App\Rules\FileTypeValidate;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Pagination\LengthAwarePaginator;
 
 
@@ -45,7 +46,7 @@ class LanguageController extends Controller
             try {
                 $language->image = fileUploader($request->image, getFilePath('language'), getFileSize('language'));
             } catch (\Exception $exp) {
-                $notify[] = ['error', 'Couldn\'t upload language image'];
+                $notify[] = ['error', __('Couldn\'t upload language image')];
                 return back()->withNotify($notify);
             }
         }
@@ -62,7 +63,7 @@ class LanguageController extends Controller
         $language->is_default = $request->is_default ? Status::YES : Status::NO;
         $language->save();
 
-        $notify[] = ['success', 'Language added successfully'];
+        $notify[] = ['success', __('Language added successfully')];
         return back()->withNotify($notify);
     }
 
@@ -78,7 +79,7 @@ class LanguageController extends Controller
         if (!$request->is_default) {
             $defaultLang = Language::where('is_default', Status::YES)->where('id', '!=', $id)->exists();
             if (!$defaultLang) {
-                $notify[] = ['error', 'You\'ve to set another language as default before unset this'];
+                $notify[] = ['error', __('You\'ve to set another language as default before unset this')];
                 return back()->withNotify($notify);
             }
         }
@@ -90,7 +91,7 @@ class LanguageController extends Controller
                 $old = $language->image;
                 $language->image = fileUploader($request->image, getFilePath('language'), getFileSize('language'), $old);
             } catch (\Exception $exp) {
-                $notify[] = ['error', 'Couldn\'t upload language image'];
+                $notify[] = ['error', __('Couldn\'t upload language image')];
                 return back()->withNotify($notify);
             }
         }
@@ -323,5 +324,58 @@ class LanguageController extends Controller
             }
         }
         return $res;
+    }
+
+    /**
+     * Switch language via AJAX
+     */
+    public function switchLanguage(Request $request)
+    {
+        $lang = $request->input('lang');
+
+        // 验证语言代码
+        if (!in_array($lang, ['en', 'zh'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid language code'
+            ], 400);
+        }
+
+        // 检查语言是否存在
+        if (Schema::hasTable('languages')) {
+            $language = Language::where('code', $lang)->first();
+            if (!$language) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Language not found'
+                ], 404);
+            }
+        }
+
+        // 设置session
+        session()->put('lang', $lang);
+        app()->setLocale($lang);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Language switched successfully',
+            'lang' => $lang,
+            'current_locale' => app()->getLocale()
+        ]);
+    }
+
+    /**
+     * Get current language
+     */
+    public function getCurrentLanguage()
+    {
+        $currentLang = session('lang', app()->getLocale());
+        $availableLangs = ['en' => 'English', 'zh' => '中文'];
+
+        return response()->json([
+            'success' => true,
+            'current' => $currentLang,
+            'available' => $availableLangs
+        ]);
     }
 }

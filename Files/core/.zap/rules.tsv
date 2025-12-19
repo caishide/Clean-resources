@@ -1,0 +1,107 @@
+# OWASP ZAP Baseline Scan Rules
+# Format: <plugin id>	<action>	<option>
+# Actions: OFF, LOW, MEDIUM, HIGH
+# This file defines which rules to use during the baseline scan
+
+10010	OFF	Cookie No HttpOnly Flag
+10011	OFF	Cookie Without Secure Flag
+10015	OFF	Incomplete or No Cache-control and Pragma HTTP Header Set
+10016	OFF	Web Browser XSS Protection Not Enabled
+10017	OFF	Cross-Domain JavaScript Source File Inclusion
+10019	OFF	Content-Type Header Not Set
+10020	OFF	X-Frame-Options Header Not Set
+10021	OFF	X-Content-Type-Options Header Missing
+10022	OFF	Information Disclosure - Debug Error Messages
+10023	OFF	Information Disclosure - Sensitive Information in URL
+10024	OFF	Information Disclosure - Sensitive Information in HTTP Referrer Header
+10025	OFF	Information Disclosure - Prohibited Headers
+10026	OFF	Information Disclosure - Suspicious Comments
+10027	OFF	Information Disclosure - Source Code Disclosure
+10028	OFF	Open Redirect
+10029	OFF	Cookie No SameSite Attribute
+10030	OFF	Cookie with SameSite=None should be Secure
+10031	OFF	HEAR/HTTP Response Splitting
+10032	OFF	UTF7 Encoding
+10033	OFF	Base64 Disclosure
+10034	OFF	Basic Authentication Over HTTP
+10035	MEDIUM	Strict-Transport-Security Missing
+10036	MEDIUM	HTTP Server Response Header
+10037	MEDIUM	Server Leaks Information via "X-Powered-By" HTTP Response Header Field(s)
+10038	MEDIUM	Content Security Policy (CSP) Header Not Set
+10039	MEDIUM	Open Redirect
+10040	MEDIUM	Secure Pages Include Mixed Content
+10041	MEDIUM	HTTP to HTTPS Insecure Transition in Form Post
+10042	MEDIUM	HTTPS to HTTP Insecure Transition in Form Post
+10043	MEDIUM	User Controllable JavaScript Event (XSS)
+10044	MEDIUM	Big Redirect Detected (Potential Sensitive Information Leak)
+10045	MEDIUM	Source Code Disclosure - /WEB-INF folder
+10046	MEDIUM	Potential forwarding to sensitive directories/paths
+10047	MEDIUM	XML External Entity attack
+10048	MEDIUM	SQL Injection
+10049	MEDIUM	SQL Injection (Hyperion Scan)
+10050	MEDIUM	SQL Injection (Hypersonic SQL Injection Database Specific)
+10051	MEDIUM	SQL Injection (MsSQL SQL Injection Database Specific)
+10052	MEDIUM	SQL Injection (MySQL SQL Injection Database Specific)
+10053	MEDIUM	SQL Injection (Oracle SQL Injection Database Specific)
+10054	MEDIUM	SQL Injection (PostgreSQL SQL Injection Database Specific)
+10055	MEDIUM	SQL Injection (Portuguese SQL Injection Database Specific)
+10056	MEDIUM	SQL Injection (Italian SQL Injection Database Specific)
+10057	MEDIUM	SQL Injection (French SQL Injection Database Specific)
+10058	MEDIUM	SQL Injection (Spanish SQL Injection Database Specific)
+10059	MEDIUM	Possible SQL Injection
+10060	MEDIUM	MySQL: SQL Injection in error message
+10061	MEDIUM	PHP Super Globals Injection
+10062	MEDIUM	PHP Include Injection
+10063	MEDIUM	Perl Include Injection
+10064	MEDIUM	Session Fixation
+10065	MEDIUM	Cross Site Request Forgery (CSRF)
+10066	MEDIUM	Buffer Overflow
+10067	MEDIUM	Parameter tampering
+10068	MEDIUM	Cross-site Scripting (Reflected)
+10069	MEDIUM	Cross-site Scripting (Stored)
+10070	MEDIUM	Cross-site Scripting (DOM Based)
+10071	MEDIUM	LDAP Injection
+10072	MEDIUM	XPATH Injection
+10073	MEDIUM	Generic XPATH Injection
+10074	MEDIUM	Generic LDAP Injection
+10075	MEDIUM	SOAP/XML Injection
+10076	MEDIUM	SQL Injection (ASP.NET)
+10077	MEDIUM	Unsafe crossdomain.xml file
+10078	MEDIUM	XML External Entity attack
+10079	MEDIUM	CSP: Header Not Present
+10080	MEDIUM	Weak HTTP methods
+10081	MEDIUM	Directory Browsing
+10082	MEDIUM	Heartbleed OpenSSL Vulnerability
+10083	MEDIUM	TLS/SSL: Weak Cipher Suites
+10084	MEDIUM	TLS/SSL: Deprecated Cipher Suites
+10085	MEDIUM	TLS/SSL: Long Duration Session Tickets
+10086	MEDIUM	TLS/SSL: Certificate chain validation
+10087	MEDIUM	HTTP Response Upload
+10088	OFF	Information Disclosure - Suspicious 404 response
+10089	MEDIUM	Clickjacking
+10090	MEDIUM	External Redirect
+10091	MEDIUM	AJAX Security
+10092	MEDIUM	Base64
+10093	MEDIUM	Parameter污染
+10094	MEDIUM	Missing Anti-MCSRF Header
+10095	MEDIUM	Backup file
+10096	MEDIUM	Timestamp Disclosure
+10097	MEDIUM	Hash Disclosure
+10098	MEDIUM	CORS
+10099	OFF	Source Code Disclosure - Script Disclosure
+10101	MEDIUM	SQL Injection - SQLite
+10102	MEDIUM	SQL Injection - Oracle
+10103	MEDIUM	SQL Injection - Access
+10104	MEDIUM	SQL Injection - DB2
+10105	MEDIUM	SQL Injection - Firebird
+10106	MEDIUM	SQL Injection - MaxDB
+10107	MEDIUM	SQL Injection - mSQL
+10108	MEDIUM	SQL Injection - Ingres
+10109	MEDIUM	SQL Injection - FrontBase
+10110	MEDIUM	SQL Injection - HSQLDB
+10111	MEDIUM	SQL Injection - Informix
+10112	MEDIUM	SQL Injection - DBVisualize
+10113	MEDIUM	SQL Injection - DynamoDB
+10114	MEDIUM	SQL Injection - UniData
+10115	MEDIUM	SQL Injection - UniSQL
+10116	MEDIUM	SQL Injection - Virtuoso

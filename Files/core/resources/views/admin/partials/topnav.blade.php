@@ -15,6 +15,9 @@
             $routesData[] = $routeData;
         }
     }
+
+    $currentLang = session('lang', 'en');
+    $emptySearchMessage = __('No search result found');
 @endphp
 
 <!-- navbar-wrapper start -->
@@ -30,6 +33,41 @@
     </div>
     <div class="navbar__right">
         <ul class="navbar__action-list">
+            <!-- Language Switcher -->
+            <li class="dropdown">
+                <button type="button" class="primary--layer" data-bs-toggle="dropdown" data-display="static"
+                    aria-haspopup="true" aria-expanded="false" title="@lang('Switch Language')">
+                    <span class="language-switcher">
+                        <i class="las la-globe"></i>
+                        <span class="lang-text d-none d-sm-inline">{{ $currentLang == 'en' ? 'EN' : '中文' }}</span>
+                        <i class="las la-angle-down"></i>
+                    </span>
+                </button>
+                <div class="dropdown-menu dropdown-menu--sm p-0 border-0 box--shadow1 dropdown-menu-right">
+                    <div class="dropdown-menu__header">
+                        <span class="caption">@lang('Switch Language')</span>
+                    </div>
+                    <div class="dropdown-menu__body">
+                        <a href="#" class="dropdown-menu__item language-option {{ $currentLang == 'en' ? 'active' : '' }}" data-lang="en">
+                            <div class="navbar-notifi d-flex align-items-center">
+                                <div class="navbar-notifi__right">
+                                    <h6 class="notifi__title">English</h6>
+                                    <span class="time"><i class="flag-icon flag-icon-us"></i></span>
+                                </div>
+                            </div>
+                        </a>
+                        <a href="#" class="dropdown-menu__item language-option {{ $currentLang == 'zh' ? 'active' : '' }}" data-lang="zh">
+                            <div class="navbar-notifi d-flex align-items-center">
+                                <div class="navbar-notifi__right">
+                                    <h6 class="notifi__title">中文</h6>
+                                    <span class="time"><i class="flag-icon flag-icon-cn"></i></span>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+            </li>
+
             @if(version_compare(gs('available_version'),systemDetails()['version'],'>'))
             <li><button type="button" class="primary--layer" data-bs-toggle="tooltip" data-bs-placement="bottom" title="@lang('Update Available')"><a href="{{ route('admin.system.update') }}" class="primary--layer"><i class="las la-download text--warning"></i></a> </button></li>
             @endif
@@ -123,6 +161,29 @@
 </nav>
 <!-- navbar-wrapper end -->
 
+@push('style')
+<style>
+    .language-switcher {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+    .language-option.active {
+        background-color: var(--primary-color);
+        color: white;
+    }
+    .language-option.active .notifi__title {
+        color: white;
+    }
+    .language-option .flag-icon {
+        font-size: 16px;
+    }
+    .lang-text {
+        font-weight: 600;
+    }
+</style>
+@endpush
+
 @push('script')
 <script>
     "use strict";
@@ -132,6 +193,52 @@
     $('.navbar__action-list .dropdown-menu').on('click', function(event){
         event.stopPropagation();
     });
+
+    // Language Switcher
+    $('.language-option').on('click', function(e) {
+        e.preventDefault();
+        var lang = $(this).data('lang');
+        var $this = $(this);
+
+        $.ajax({
+            url: '{{ route("admin.language.switch") }}',
+            type: 'POST',
+            data: {
+                lang: lang,
+                _token: '{{ csrf_token() }}'
+            },
+            beforeSend: function() {
+                $this.addClass('loading');
+            },
+            success: function(response) {
+                if(response.success) {
+                    // Update active state
+                    $('.language-option').removeClass('active');
+                    $this.addClass('active');
+
+                    // Update dropdown button text
+                    var langText = lang === 'en' ? 'EN' : '中文';
+                    $('.lang-text').text(langText);
+
+                    // Show success message
+                    notify('success', response.message);
+
+                    // Reload page after short delay
+                    setTimeout(function() {
+                        window.location.reload();
+                    }, 500);
+                } else {
+                    notify('error', response.message || 'Failed to switch language');
+                }
+            },
+            error: function(xhr) {
+                notify('error', 'An error occurred while switching language');
+            },
+            complete: function() {
+                $this.removeClass('loading');
+            }
+        });
+    });
 </script>
 <script src="{{ asset('assets/admin/js/search.js') }}"></script>
 <script>
@@ -140,7 +247,7 @@
         return `<li class="text-muted">
                 <div class="empty-search text-center">
                     <img src="{{ getImage('assets/images/empty_list.png') }}" alt="empty">
-                    <p class="text-muted">No search result found</p>
+                    <p class="text-muted">` + @json($emptySearchMessage) + `</p>
                 </div>
             </li>`
     }

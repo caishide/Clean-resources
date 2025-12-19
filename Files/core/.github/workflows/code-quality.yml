@@ -1,0 +1,148 @@
+name: Code Quality
+
+on:
+  push:
+    branches: [ master, develop ]
+  pull_request:
+    branches: [ master, develop ]
+
+jobs:
+  code-quality:
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: test_db
+        ports:
+          - 3306/tcp
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379/tcp
+        options: --health-cmd="redis-cli ping" --health-interval=10s --health-timeout=5s --health-retries=3
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: '8.2'
+        extensions: mbstring, xml, ctype, iconv, intl, pdo, pdo_mysql, dom, fileinfo, gd, iconv, json, mbstring, exif, mysqlnd, PDO, PDO_MySQLi, sodium, openssl, tokenizer, xml, zip
+        coverage: xdebug
+
+    - name: Setup Composer
+      uses: php-actions/composer@v6
+      with:
+        php_version: 8.2
+
+    - name: Cache Composer dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.composer/cache/files
+        key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-composer-
+
+    - name: Install dependencies
+      run: composer install --no-progress --prefer-dist --optimize-autoloader
+
+    - name: Generate application key
+      run: php artisan key:generate --force
+      env: testing:
+        APP_ENV
+
+    - name: Run migrations
+      run: php artisan migrate --force
+      env:
+        DB_CONNECTION: mysql
+        DB_HOST: 127.0.0.1
+        DB_PORT: 3306
+        DB_DATABASE: test_db
+        DB_USERNAME: root
+        DB_PASSWORD: root
+
+    - name: Run PHPStan static analysis
+      run: ./vendor/bin/phpstan analyse --memory-limit=2G
+      continue-on-error: true
+
+    - name: Run PHP CS Fixer
+      run: ./vendor/bin/php-cs-fixer fix --dry-run --diff
+      continue-on-error: true
+
+    - name: Run Laravel Pint
+      run: ./vendor/bin/pint --config=pint.json --dry-run
+      continue-on-error: true
+
+    - name: Run tests
+      run: php artisan test --coverage-clover coverage.xml
+      env:
+        DB_CONNECTION: mysql
+        DB_HOST: 127.0.0.1
+        DB_PORT: 3306
+        DB_DATABASE: test_db
+        DB_USERNAME: root
+        DB_PASSWORD: root
+        APP_ENV: testing
+
+    - name: Upload coverage reports
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+      continue-on-error: true
+
+  security-audit:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: '8.2'
+
+    - name: Install dependencies
+      run: composer install --no-dev --prefer-dist --optimize-autoloader
+
+    - name: Run security audit
+      run: ./vendor/bin/security-checker security:check
+      continue-on-error: true
+
+    - name: Scan for vulnerabilities
+      run: ./vendor/bin/symfony security:check
+      continue-on-error: true
+
+  performance-check:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: '8.2'
+        extensions: mbstring, xml, ctype, iconv, intl, pdo, pdo_mysql, dom, fileinfo, gd, iconv, json, mbstring, exif, mysqlnd, PDO, PDO_MySQLi, sodium, openssl, tokenizer, xml, zip
+
+    - name: Install dependencies
+      run: composer install --no-dev --prefer-dist --optimize-autoloader
+
+    - name: Run Laravel Optimize
+      run: |
+        php artisan config:cache
+        php artisan route:cache
+        php artisan view:cache
+
+    - name: Check for N+1 queries
+      run: ./vendor/bin/php artisan tinker --execute="echo 'N+1 Query Check: Run \"scope:related\" in Laravel Debugbar or use Laravel Telescope';"

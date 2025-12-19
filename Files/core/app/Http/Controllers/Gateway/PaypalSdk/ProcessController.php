@@ -61,20 +61,30 @@ class ProcessController extends Controller
         return json_encode($send);
     }
 
-    public function ipn()
+    public function ipn(Request $request)
     {
-        $request = new OrdersCaptureRequest($_GET['token']);
-        $request->prefer('return=representation');
+        // Validate token parameter to prevent IDOR attacks
+        $validated = $request->validate([
+            'token' => 'required|string|max:100|regex:/^[a-zA-Z0-9_-]+$/',
+        ], [
+            'token.regex' => 'Invalid token format.',
+            'token.max' => 'Token is too long.',
+        ]);
+
+        $captureRequest = new OrdersCaptureRequest($validated['token']);
+        $captureRequest->prefer('return=representation');
 
         try {
-            $deposit = Deposit::where('btc_wallet',$_GET['token'])->where('status',Status::PAYMENT_INITIATE)->firstOrFail();
+            $deposit = Deposit::where('btc_wallet', $validated['token'])
+                              ->where('status', Status::PAYMENT_INITIATE)
+                              ->firstOrFail();
             $paypalAcc = json_decode($deposit->gatewayCurrency()->gateway_parameter);
             $clientId = $paypalAcc->clientId;
             $clientSecret = $paypalAcc->clientSecret;
             $environment = new ProductionEnvironment($clientId, $clientSecret);
             $client = new PayPalHttpClient($environment);
 
-            $response = $client->execute($request);
+            $response = $client->execute($captureRequest);
 
             if(@$response->result->status == 'COMPLETED'){
                 $deposit->detail = json_decode(json_encode($response->result->payer));

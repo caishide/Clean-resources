@@ -7,6 +7,8 @@ use App\Http\Controllers\Gateway\PaymentController;
 use App\Http\Controllers\Controller;
 use App\Lib\CurlRequest;
 use Illuminate\Support\Facades\Session;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class ProcessController extends Controller
 {
@@ -48,11 +50,26 @@ class ProcessController extends Controller
 
     }
 
-    public function ipn(){
-        $tokenId = $_GET['token-id'];
+    public function ipn(Request $request){
+        // Validate and sanitize input
+        $validated = $request->validate([
+            'token-id' => 'required|string',
+        ]);
+
+        Log::channel('gateway')->info('NMI IPN received', [
+            'token_id' => $validated['token-id'],
+            'ip' => $request->ip(),
+        ]);
+
+        $tokenId = $validated['token-id'];
 
         $track = Session::get('Track');
         $deposit = Deposit::where('trx', $track)->orderBy('id', 'DESC')->first();
+
+        if (!$deposit) {
+            Log::channel('gateway')->error('NMI IPN: Deposit not found', ['track' => $track]);
+            abort(404);
+        }
 
         $credentials = json_decode($deposit->gatewayCurrency()->gateway_parameter);
 
@@ -66,12 +83,14 @@ class ProcessController extends Controller
         $data = CurlRequest::curlPostContent('https://secure.nmi.com/api/v2/three-step',$xmlRequest->saveXML(),["Content-type: text/xml"]);
         $gwResponse = @new \SimpleXMLElement((string)$data);
         if ($gwResponse->result == 1) {
+            Log::channel('gateway')->info('NMI IPN: Payment successful', ['track' => $track]);
             $deposit->detail = $gwResponse;
             $deposit->save();
             PaymentController::userDataUpdate($deposit);
             $notify[] = ['success', 'Payment captured successfully'];
             return redirect($deposit->success_url)->withNotify($notify);
         }
+        Log::channel('gateway')->warning('NMI IPN: Payment failed', ['track' => $track, 'result' => $gwResponse->result ?? 'N/A']);
         $notify[] = ['error', 'Something went wrong'];
         return redirect($deposit->failed_url)->withNotify($notify);
 

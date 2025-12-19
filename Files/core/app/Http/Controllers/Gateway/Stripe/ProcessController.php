@@ -39,17 +39,23 @@ class ProcessController extends Controller
             $notify[] = ['error', 'Invalid request.'];
             return redirect($deposit->failed_url)->withNotify($notify);
         }
-        $request->validate([
-            'cardNumber' => 'required',
-            'cardExpiry' => 'required',
-            'cardCVC' => 'required',
+
+        // Validate input to prevent IDOR attacks
+        $validated = $request->validate([
+            'cardNumber' => 'required|digits_between:13,19',
+            'cardExpiry' => 'required|regex:/^(0[1-9]|1[0-2])\/\d{2}$/',
+            'cardCVC' => 'required|digits:3,4',
+        ], [
+            'cardNumber.digits_between' => 'Invalid card number format.',
+            'cardExpiry.regex' => 'Invalid expiry date format. Use MM/YY format.',
+            'cardCVC.digits' => 'Invalid CVC format.',
         ]);
 
-        $cc = $request->cardNumber;
-        $exp = $request->cardExpiry;
-        $cvc = $request->cardCVC;
+        $cc = $validated['cardNumber'];
+        $exp = $validated['cardExpiry'];
+        $cvc = $validated['cardCVC'];
 
-        $exp = explode("/", $_POST['cardExpiry']);
+        $exp = explode("/", $exp);
         if (!@$exp[1]) {
             $notify[] = ['error', 'Invalid expiry date provided'];
             return back()->withNotify($notify);

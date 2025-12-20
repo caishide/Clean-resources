@@ -10,6 +10,7 @@ use App\Models\UserLogin;
 use Illuminate\Http\Request;
 use App\Models\AdminNotification;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\User\UserRegistrationRequest;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Auth\Events\Registered;
@@ -32,7 +33,7 @@ class RegisterController extends Controller
         $pageTitle = "Register";
         if ($request->ref && $request->position) {
 
-            $refUser = User::where('username', $request->ref)->first();
+            $refUser = $this->resolveReferrerUser((string) $request->ref);
             if ($refUser == null) {
                 $notify[] = ['error', 'Invalid Referral link.'];
                 return redirect()->route('home')->withNotify($notify);
@@ -76,7 +77,27 @@ class RegisterController extends Controller
             return back()->withNotify($notify);
         }
 
-        event(new Registered($user = $this->create($request->validated())));
+        $validated = $request->validated();
+        $placementId = (int) ($validated['placement_id'] ?? 0);
+        if ($placementId > 0) {
+            $refUser = $this->resolveReferrerUser((string) $validated['referBy']);
+            if (!$refUser) {
+                $notify[] = ['error', '推荐人不存在'];
+                return back()->withNotify($notify)->withInput();
+            }
+            if (!$this->isPlacementInReferrerTree($refUser->id, $placementId)) {
+                $notify[] = ['error', '安置ID不在推荐人团队内'];
+                return back()->withNotify($notify)->withInput();
+            }
+            $position = (int) ($validated['position'] ?? 0);
+            $occupied = User::where('pos_id', $placementId)->where('position', $position)->exists();
+            if ($occupied) {
+                $notify[] = ['error', '该安置位置不可用'];
+                return back()->withNotify($notify)->withInput();
+            }
+        }
+
+        event(new Registered($user = $this->create($validated)));
 
         $this->guard()->login($user);
 
@@ -88,8 +109,19 @@ class RegisterController extends Controller
     protected function create(array $data)
     {
         return DB::transaction(function () use ($data) {
-            $userCheck = User::where('username', $data['referBy'])->first();
-            $pos = getPosition($userCheck->id, $data['position']);
+            $userCheck = $this->resolveReferrerUser((string) ($data['referBy'] ?? ''));
+            if (!$userCheck) {
+                throw new \RuntimeException('推荐人不存在');
+            }
+            $placementId = (int) ($data['placement_id'] ?? 0);
+            if ($placementId > 0) {
+                $pos = [
+                    'pos_id' => $placementId,
+                    'position' => (int) $data['position'],
+                ];
+            } else {
+                $pos = getPosition($userCheck->id, $data['position']);
+            }
 
             //User Create
             $user            = new User();
@@ -128,8 +160,8 @@ class RegisterController extends Controller
                 $userLogin->country      = $exist->country;
             } else {
                 $info                    = json_decode(json_encode(getIpInfo()), true);
-                $userLogin->longitude    = @implode(',', $info['long']);
-                $userLogin->latitude     = @implode(',', $info['lat']);
+            $userLogin->longitude    = @implode(',', $info['long']);
+            $userLogin->latitude     = @implode(',', $info['lat']);
                 $userLogin->city         = @implode(',', $info['city']);
                 $userLogin->country_code = @implode(',', $info['code']);
                 $userLogin->country      = @implode(',', $info['country']);
@@ -145,6 +177,25 @@ class RegisterController extends Controller
 
             return $user;
         });
+    }
+
+    private function resolveReferrerUser(string $input): ?User
+    {
+        $value = trim($input);
+        if ($value === '') {
+            return null;
+        }
+        $value = preg_replace('/\s+/', ' ', $value);
+
+        if (ctype_digit($value)) {
+            return User::find((int) $value);
+        }
+
+        return User::where('username', $value)
+            ->orWhere('email', $value)
+            ->orWhereRaw("concat(firstname, ' ', lastname) = ?", [$value])
+            ->orWhereRaw("concat(lastname, ' ', firstname) = ?", [$value])
+            ->first();
     }
 
     public function checkUser(Request $request): \Illuminate\Http\JsonResponse
@@ -178,5 +229,17 @@ class RegisterController extends Controller
             updateFreeCount($user->id);
         });
         return to_route('user.home');
+    }
+
+    private function isPlacementInReferrerTree(int $referrerId, int $placementId): bool
+    {
+        $current = $placementId;
+        while ($current > 0) {
+            if ($current === $referrerId) {
+                return true;
+            }
+            $current = (int) getPositionId($current);
+        }
+        return false;
     }
 }

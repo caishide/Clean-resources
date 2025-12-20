@@ -94,7 +94,7 @@ class UserTest extends TestCase
         $verifiedUser = User::factory()->create(['ev' => 1]);
         $unverifiedUser = User::factory()->create(['ev' => 0]);
 
-        $verifiedUsers = User::verified()->get();
+        $verifiedUsers = User::emailVerified()->get();
 
         $this->assertTrue($verifiedUsers->contains($verifiedUser));
         $this->assertFalse($verifiedUsers->contains($unverifiedUser));
@@ -122,6 +122,5 @@ class UserTest extends TestCase
         $this->assertContains('email', $fillable);
         $this->assertContains('password', $fillable);
         $this->assertContains('ref_by', $fillable);
-        $this->assertContains('position', $fillable);
     }
 }

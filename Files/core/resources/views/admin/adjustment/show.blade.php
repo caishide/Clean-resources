@@ -7,7 +7,7 @@
         <div>
             <span class="badge bg-{{ $batch->finalized_at ? 'success' : 'warning' }}">{{ $batch->finalized_at ? '已完成' : '待确认' }}</span>
             @if(!$batch->finalized_at)
-            <form action="{{ route('admin.adjustment-batches.finalize', $batch->id) }}" method="post" class="d-inline">
+            <form action="{{ route('admin.adjustment.finalize', $batch->id) }}" method="post" class="d-inline">
                 @csrf
                 <button class="btn btn-sm btn-success" onclick="return confirm('确认Finalize该批次？')">Finalize</button>
             </form>

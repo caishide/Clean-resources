@@ -45,7 +45,7 @@ class AdminImpersonationSecurityTest extends TestCase
     public function admin_cannot_impersonate_without_2fa()
     {
         $response = $this->actingAs($this->admin, 'admin')
-            ->post(route('admin.users.impersonate', $this->targetUser->id));
+            ->post(route('admin.users.login', $this->targetUser->id));
 
         $response->assertStatus(302);
         $response->assertSessionHasErrors();
@@ -58,7 +58,7 @@ class AdminImpersonationSecurityTest extends TestCase
         session(['twofa_verified_at' => now()]);
 
         $response = $this->actingAs($this->admin, 'admin')
-            ->post(route('admin.users.impersonate', $this->targetUser->id));
+            ->post(route('admin.users.login', $this->targetUser->id));
 
         $response->assertStatus(302);
         $this->assertTrue(session()->has('admin_impersonating'));
@@ -71,7 +71,7 @@ class AdminImpersonationSecurityTest extends TestCase
         session(['twofa_verified_at' => now()]);
 
         $this->actingAs($this->admin, 'admin')
-            ->post(route('admin.users.impersonate', $this->targetUser->id));
+            ->post(route('admin.users.login', $this->targetUser->id));
 
         $this->assertDatabaseHas('audit_logs', [
             'admin_id' => $this->admin->id,
@@ -88,11 +88,11 @@ class AdminImpersonationSecurityTest extends TestCase
 
         // First impersonation
         $this->actingAs($this->admin, 'admin')
-            ->post(route('admin.users.impersonate', $this->targetUser->id));
+            ->post(route('admin.users.login', $this->targetUser->id));
 
         // Second impersonation should fail
         $response = $this->actingAs($this->admin, 'admin')
-            ->post(route('admin.users.impersonate', $this->targetUser->id));
+            ->post(route('admin.users.login', $this->targetUser->id));
 
         $response->assertStatus(302);
         $response->assertSessionHasErrors();
@@ -149,7 +149,7 @@ class AdminImpersonationSecurityTest extends TestCase
         ]);
 
         $response = $this->actingAs($regularAdmin, 'admin')
-            ->post(route('admin.users.impersonate', $this->targetUser->id));
+            ->post(route('admin.users.login', $this->targetUser->id));
 
         $response->assertStatus(403);
     }

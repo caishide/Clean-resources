@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Support\Facades\Hash;
 use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
@@ -275,5 +276,27 @@ class User extends Authenticatable
     public function scopeWithBalance(Builder $query): Builder
     {
         return $query->where('balance', '>', 0);
+    }
+
+    /**
+     * 密码修改器 - 自动哈希密码
+     *
+     * @param string $value 原始密码
+     * @return void
+     */
+    protected function setPasswordAttribute(string $value): void
+    {
+        $this->attributes['password'] = Hash::make($value);
+    }
+
+    /**
+     * 检查用户是否拥有指定资源
+     *
+     * @param mixed $resource 要检查的资源
+     * @return bool
+     */
+    public function owns(mixed $resource): bool
+    {
+        return $this->id == $resource->user_id;
     }
 }

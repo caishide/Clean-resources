@@ -26,6 +26,8 @@ class SimulationController extends Controller
         $results = null;
 
         if ($request->isMethod('post') || $request->boolean('run')) {
+            @ini_set('memory_limit', '512M');
+            @set_time_limit(0);
             $engine = strtolower((string) ($params['engine'] ?? ''));
             if ($engine === '') {
                 $engine = 'fast';

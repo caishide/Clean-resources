@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Traits\GlobalStatus;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Builder;
@@ -14,7 +15,30 @@ use Illuminate\Database\Eloquent\Builder;
  */
 class Category extends Model
 {
-    use GlobalStatus;
+    use GlobalStatus, HasFactory;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var array<int, string>
+     */
+    protected $fillable = [
+        'name',
+        'description',
+        'image',
+        'status',
+        'featured',
+    ];
+
+    /**
+     * The attributes that should be cast.
+     *
+     * @var array<string, string>
+     */
+    protected $casts = [
+        'status' => 'integer',
+        'featured' => 'integer',
+    ];
 
     /**
      * 获取分类下的所有产品

@@ -85,7 +85,6 @@ class SimulationService
             $users[] = $root->id;
             $children[$root->id] = ['left' => false, 'right' => false];
             $buyerPool = [$root->id];
-            $rootSide = [$root->id => 0];
 
             // 周循环
             for ($w = 0; $w < $weeks; $w++) {
@@ -98,9 +97,8 @@ class SimulationService
                 $limit = min($weeklyNew, $totalUsersTarget - count($users));
                 $unpaidRemaining = min($unpaidPerWeek, $limit);
                 for ($i = 0; $i < $limit; $i++) {
-                    $desiredLeft = random_int(1, 100) <= $leftRatio;
-                    $desiredSide = $desiredLeft ? Status::LEFT : Status::RIGHT;
-                    [$parentId, $position] = $this->findPlacement($children, $desiredLeft, $rootSide, $desiredSide);
+                    $preferLeft = random_int(1, 100) <= $leftRatio;
+                    [$parentId, $position] = $this->findPlacement($children, $preferLeft);
                     $isUnpaid = $unpaidRemaining > 0;
                     if ($isUnpaid) {
                         $unpaidRemaining--;
@@ -119,7 +117,6 @@ class SimulationService
                     }
                     $children[$user->id] = ['left' => false, 'right' => false];
                     $children[$parentId][$position == Status::LEFT ? 'left' : 'right'] = true;
-                    $rootSide[$user->id] = $parentId === $root->id ? $position : (int) ($rootSide[$parentId] ?? $position);
                     $newUsersAdded++;
                     if (count($users) >= $totalUsersTarget) {
                         break;
@@ -384,7 +381,6 @@ class SimulationService
         $rankLevel = [1 => 1];
         $purchaseCount = [1 => 0];
         $buyerIds = [1];
-        $rootSide = [1 => 0];
 
         $bvLeft = [1 => 0.0];
         $bvRight = [1 => 0.0];
@@ -406,9 +402,8 @@ class SimulationService
             $limit = min($weeklyNew, $totalUsersTarget - count($userIds));
             $unpaidRemaining = min($unpaidPerWeek, $limit);
             for ($i = 0; $i < $limit; $i++) {
-                $desiredLeft = random_int(1, 100) <= $leftRatio;
-                $desiredSide = $desiredLeft ? Status::LEFT : Status::RIGHT;
-                [$parentId, $pos] = $this->findPlacement($children, $desiredLeft, $rootSide, $desiredSide);
+                $preferLeft = random_int(1, 100) <= $leftRatio;
+                [$parentId, $pos] = $this->findPlacement($children, $preferLeft);
 
                 $nextUserId++;
                 $newId = $nextUserId;
@@ -429,7 +424,6 @@ class SimulationService
                 if (!$isUnpaid) {
                     $buyerIds[] = $newId;
                 }
-                $rootSide[$newId] = $parentId === 1 ? $pos : (int) ($rootSide[$parentId] ?? $pos);
                 $children[$newId] = ['left' => false, 'right' => false];
                 $children[$parentId][$pos == Status::LEFT ? 'left' : 'right'] = true;
 

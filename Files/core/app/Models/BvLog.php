@@ -16,10 +16,22 @@ use Illuminate\Database\Eloquent\Builder;
 class BvLog extends Model
 {
     /** @var string BV增加类型 */
-    private const TRX_TYPE_PLUS = '+';
+    public const TRX_TYPE_PLUS = '+';
 
     /** @var string BV减少类型 */
-    private const TRX_TYPE_MINUS = '-';
+    public const TRX_TYPE_MINUS = '-';
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var array<int, string>
+     */
+    protected $fillable = [
+        'user_id',
+        'position',
+        'trx_type',
+        'amount',
+    ];
 
     /**
      * 获取所属用户

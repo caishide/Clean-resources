@@ -92,6 +92,17 @@
                         </div>
 
                         <div class="row">
+                            <div class="col-lg-12">
+                                <div class="form--group">
+                                    <label class="form--label">安置ID（可选）</label>
+                                    <input class="form-control form--control" name="placement_id" type="number"
+                                        value="{{ old('placement_id') }}" placeholder="请输入安置用户ID">
+                                    <small class="text-muted">未填写则按左右方向自动安置</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
                             <div class="col-lg-6">
                                 <div class="form--group">
                                     <label class="form--label">@lang('First Name')</label>

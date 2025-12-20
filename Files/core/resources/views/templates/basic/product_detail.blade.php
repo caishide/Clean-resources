@@ -66,7 +66,7 @@
                             <li class="meta-item">
                                 <h6 class="title">@lang('Tags') :</h6>
                                 <div>
-                                    @foreach ($product->meta_keyword as $keyword)
+                                    @foreach (($product->meta_keyword ?? []) as $keyword)
                                         <a href="#0">{{ $keyword }}</a>
                                     @endforeach
                                 </div>
@@ -165,7 +165,7 @@
                             </div>
                             <div class="product-content">
                                 <h6 class="product-title"><a
-                                        href="{{ route('product.details', ['id' => $product->id, 'slug' => slug($product->name)]) }}">{{ __(shortDescription($product->name, 35)) }}</a>
+                                        href="{{ route('product.details', ['id' => $product->id, 'slug' => slug($product->name) ?: 'product-' . $product->id]) }}">{{ __(shortDescription($product->name, 35)) }}</a>
                                 </h6>
 
                                 @if ($product->quantity >= 0)
@@ -178,7 +178,7 @@
                                     <span class="current-price">{{ showAmount($product->price) }}</span>
                                 </div>
                                 <a class="add-to-cart cmn--btn-2"
-                                    href="{{ route('product.details', ['id' => $product->id, 'slug' => slug($product->name)]) }}">@lang('Details')</a>
+                                    href="{{ route('product.details', ['id' => $product->id, 'slug' => slug($product->name) ?: 'product-' . $product->id]) }}">@lang('Details')</a>
                             </div>
                         </div>
                     </div>

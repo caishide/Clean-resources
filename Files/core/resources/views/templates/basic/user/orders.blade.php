@@ -18,7 +18,7 @@
                             <tr>
                                 <td>
                                     @if (@$order->product)
-                                        <a href="{{ route('product.details', ['id' => @$order->product->id, 'slug' => slug($order->product->name)]) }}">
+                                        <a href="{{ route('product.details', ['id' => $order->product->id, 'slug' => slug($order->product->name) ?: 'product-' . $order->product->id]) }}">
                                             {{ __(strLimit($order->product->name, '30')) }}</a>
                                     @endif
                                 </td>

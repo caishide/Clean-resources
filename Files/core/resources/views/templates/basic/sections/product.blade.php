@@ -29,7 +29,7 @@
                         </div>
                         <div class="product-content">
                             <h6 class="product-title"><a
-                                    href="{{ route('product.details', ['id' => $product->id, 'slug' => slug($product->name)]) }}">{{ __(shortDescription($product->name, 35)) }}</a>
+                                    href="{{ route('product.details', ['id' => $product->id, 'slug' => slug($product->name) ?: 'product-' . $product->id]) }}">{{ __(shortDescription($product->name, 35)) }}</a>
                             </h6>
 
                             @if ($product->quantity >= 0)
@@ -42,7 +42,7 @@
                                 <span class="current-price">{{ showAmount($product->price) }}</span>
                             </div>
                             <a class="add-to-cart cmn--btn-2"
-                                href="{{ route('product.details', ['id' => $product->id, 'slug' => slug($product->name)]) }}">@lang('Details')</a>
+                                href="{{ route('product.details', ['id' => $product->id, 'slug' => slug($product->name) ?: 'product-' . $product->id]) }}">@lang('Details')</a>
                         </div>
                     </div>
                 </div>

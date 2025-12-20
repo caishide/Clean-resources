@@ -32,6 +32,25 @@ class Transaction extends Model
     ];
 
     /**
+     * The attributes that should be hidden for serialization.
+     *
+     * @var array<int, string>
+     */
+    protected $hidden = [
+    ];
+
+    /**
+     * The attributes that should be cast.
+     *
+     * @var array<string, string>
+     */
+    protected $casts = [
+        'amount' => 'decimal:2',
+        'post_balance' => 'decimal:2',
+        'charge' => 'decimal:2',
+    ];
+
+    /**
      * Get the user that owns the transaction
      *
      * @return BelongsTo

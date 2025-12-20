@@ -36,9 +36,9 @@
                         <td>{{ $batch->finalized_at ? '已完成' : '待确认' }}</td>
                         <td>{{ $batch->created_at }}</td>
                         <td>
-                            <a href="{{ route('admin.adjustment-batches.show', $batch->id) }}" class="btn btn-sm btn-primary">查看</a>
+                            <a href="{{ route('admin.adjustment.show', $batch->id) }}" class="btn btn-sm btn-primary">查看</a>
                             @if(!$batch->finalized_at)
-                            <form action="{{ route('admin.adjustment-batches.finalize', $batch->id) }}" method="post" class="d-inline">
+                            <form action="{{ route('admin.adjustment.finalize', $batch->id) }}" method="post" class="d-inline">
                                 @csrf
                                 <button class="btn btn-sm btn-success" onclick="return confirm('确认Finalize该批次？')">Finalize</button>
                             </form>

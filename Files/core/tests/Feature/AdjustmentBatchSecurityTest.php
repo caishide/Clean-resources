@@ -48,7 +48,10 @@ class AdjustmentBatchSecurityTest extends TestCase
     {
         AdjustmentBatch::create([
             'batch_key' => 'TEST-001',
-            'created_by' => $this->admin->id,
+            'reason_type' => 'manual_correction',
+            'reference_type' => 'order',
+            'reference_id' => '1',
+            'snapshot' => json_encode(['test' => 'data']),
             'status' => 'pending',
         ]);
 
@@ -64,14 +67,20 @@ class AdjustmentBatchSecurityTest extends TestCase
     {
         AdjustmentBatch::create([
             'batch_key' => 'TEST-001',
-            'created_by' => $this->admin->id,
+            'reason_type' => 'manual_correction',
+            'reference_type' => 'order',
+            'reference_id' => '1',
+            'snapshot' => json_encode(['test' => 'data']),
             'status' => 'pending',
         ]);
 
         AdjustmentBatch::create([
             'batch_key' => 'TEST-002',
-            'created_by' => $this->admin->id,
-            'status' => 'pending',
+            'reason_type' => 'manual_correction',
+            'reference_type' => 'order',
+            'reference_id' => '2',
+            'snapshot' => json_encode(['test' => 'data']),
+            'status' => 'finalized',
             'finalized_at' => now(),
         ]);
 
@@ -86,7 +95,10 @@ class AdjustmentBatchSecurityTest extends TestCase
     {
         $batch = AdjustmentBatch::create([
             'batch_key' => 'TEST-001',
-            'created_by' => $this->admin->id,
+            'reason_type' => 'manual_correction',
+            'reference_type' => 'order',
+            'reference_id' => '1',
+            'snapshot' => json_encode(['test' => 'data']),
             'status' => 'pending',
         ]);
 
@@ -94,8 +106,7 @@ class AdjustmentBatchSecurityTest extends TestCase
             'batch_id' => $batch->id,
             'user_id' => $this->user->id,
             'amount' => 100,
-            'type' => 'credit',
-            'remark' => 'Test entry',
+            'asset_type' => 'wallet',
         ]);
 
         $response = $this->actingAs($this->admin, 'admin')
@@ -119,8 +130,11 @@ class AdjustmentBatchSecurityTest extends TestCase
     {
         $batch = AdjustmentBatch::create([
             'batch_key' => 'TEST-001',
-            'created_by' => $this->admin->id,
-            'status' => 'pending',
+            'reason_type' => 'manual_correction',
+            'reference_type' => 'order',
+            'reference_id' => '1',
+            'snapshot' => json_encode(['test' => 'data']),
+            'status' => 'finalized',
             'finalized_at' => now(),
         ]);
 
@@ -136,7 +150,10 @@ class AdjustmentBatchSecurityTest extends TestCase
     {
         $batch = AdjustmentBatch::create([
             'batch_key' => 'TEST-001',
-            'created_by' => $this->admin->id,
+            'reason_type' => 'manual_correction',
+            'reference_type' => 'order',
+            'reference_id' => '1',
+            'snapshot' => json_encode(['test' => 'data']),
             'status' => 'pending',
         ]);
 
@@ -157,7 +174,10 @@ class AdjustmentBatchSecurityTest extends TestCase
     {
         $batch = AdjustmentBatch::create([
             'batch_key' => 'TEST-001',
-            'created_by' => $this->admin->id,
+            'reason_type' => 'manual_correction',
+            'reference_type' => 'order',
+            'reference_id' => '1',
+            'snapshot' => json_encode(['test' => 'data']),
             'status' => 'pending',
         ]);
 
@@ -197,7 +217,10 @@ class AdjustmentBatchSecurityTest extends TestCase
         for ($i = 1; $i <= 25; $i++) {
             AdjustmentBatch::create([
                 'batch_key' => 'TEST-' . str_pad($i, 3, '0', STR_PAD_LEFT),
-                'created_by' => $this->admin->id,
+                'reason_type' => 'manual_correction',
+                'reference_type' => 'order',
+                'reference_id' => (string) $i,
+                'snapshot' => json_encode(['test' => 'data']),
                 'status' => 'pending',
             ]);
         }
@@ -213,7 +236,10 @@ class AdjustmentBatchSecurityTest extends TestCase
     {
         $batch = AdjustmentBatch::create([
             'batch_key' => 'TEST-001',
-            'created_by' => $this->admin->id,
+            'reason_type' => 'manual_correction',
+            'reference_type' => 'order',
+            'reference_id' => '1',
+            'snapshot' => json_encode(['test' => 'data']),
             'status' => 'pending',
         ]);
 
@@ -223,8 +249,7 @@ class AdjustmentBatchSecurityTest extends TestCase
                 'batch_id' => $batch->id,
                 'user_id' => $this->user->id,
                 'amount' => 100,
-                'type' => 'credit',
-                'remark' => "Test entry $i",
+                'asset_type' => 'wallet',
             ]);
         }
 

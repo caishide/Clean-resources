@@ -14,6 +14,7 @@ class AdjustmentBatchController extends Controller
 {
     public function index(Request $request)
     {
+        $pageTitle = 'Adjustment Batches';
         $status = $request->input('status');
         $query = AdjustmentBatch::query()->orderByDesc('id');
         if ($status === 'pending') {
@@ -22,14 +23,15 @@ class AdjustmentBatchController extends Controller
             $query->whereNotNull('finalized_at');
         }
         $batches = $query->paginate(20);
-        return view('admin.adjustment.batches', compact('batches', 'status'));
+        return view('admin.adjustment.batches', compact('pageTitle', 'batches', 'status'));
     }
 
     public function show($id)
     {
+        $pageTitle = 'Adjustment Batch Details';
         $batch = AdjustmentBatch::findOrFail($id);
         $entries = AdjustmentEntry::where('batch_id', $id)->orderByDesc('id')->paginate(50);
-        return view('admin.adjustment.show', compact('batch', 'entries'));
+        return view('admin.adjustment.show', compact('pageTitle', 'batch', 'entries'));
     }
 
     public function finalize($id, AdjustmentService $service)

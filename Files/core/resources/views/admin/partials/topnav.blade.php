@@ -18,6 +18,7 @@
 
     $currentLang = session('lang', 'en');
     $emptySearchMessage = __('No search result found');
+    $adminNotificationCount = isset($adminNotificationCount) ? $adminNotificationCount : 0;
 @endphp
 
 <!-- navbar-wrapper start -->

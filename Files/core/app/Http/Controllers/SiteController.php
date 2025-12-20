@@ -269,12 +269,12 @@ class SiteController extends Controller
 
     public function checkUsername(Request $request)
     {
-        $id = User::where('username', $request->username)->first();
+        $id = $this->resolveReferrerUser((string) $request->username);
         if ($id) {
-            return response()->json(['success' => true, 'msg' => "<span class='help-block'><strong class='text-success'>Referrer username matched</strong></span>
+            return response()->json(['success' => true, 'msg' => "<span class='help-block'><strong class='text-success'>Referrer matched</strong></span>
             <input type='hidden' id='referrer_id' value='$id->id' name='referrer_id'>"]);
         } else {
-            return response()->json(['success' => false, 'msg' => "<span class='help-block'><strong class='text-danger'>Referrer username not found</strong></span>"]);
+            return response()->json(['success' => false, 'msg' => "<span class='help-block'><strong class='text-danger'>Referrer not found</strong></span>"]);
         }
     }
 
@@ -296,5 +296,24 @@ class SiteController extends Controller
             $position = 'Right';
         }
         return response()->json(['success' => true, 'msg' => "<span class='help-block'><strong class='text-success'>You are joining under $join_under->username at $position  </strong></span>"]);
+    }
+
+    private function resolveReferrerUser(string $input): ?User
+    {
+        $value = trim($input);
+        if ($value === '') {
+            return null;
+        }
+        $value = preg_replace('/\s+/', ' ', $value);
+
+        if (ctype_digit($value)) {
+            return User::find((int) $value);
+        }
+
+        return User::where('username', $value)
+            ->orWhere('email', $value)
+            ->orWhereRaw("concat(firstname, ' ', lastname) = ?", [$value])
+            ->orWhereRaw("concat(lastname, ' ', firstname) = ?", [$value])
+            ->first();
     }
 }

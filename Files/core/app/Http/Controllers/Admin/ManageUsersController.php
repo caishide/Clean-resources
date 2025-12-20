@@ -12,6 +12,10 @@ use App\Models\Transaction;
 use App\Models\AuditLog;
 use App\Models\Admin;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\View\View;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use App\Models\NotificationLog;
 use App\Rules\FileTypeValidate;
 use App\Http\Controllers\Controller;
@@ -21,97 +25,174 @@ use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
+/**
+ * ManageUsersController - 用户管理控制器
+ *
+ * 处理用户列表、详情、KYC验证、余额管理、
+ * 管理员模拟登录、通知发送等功能
+ */
 class ManageUsersController extends Controller
 {
+    /** @var string BV减少交易类型 */
+    private const BV_TRX_TYPE_MINUS = '-';
 
-    public function allUsers()
+    /** @var int 会话时长计算秒数 */
+    private const SECONDS_PER_MINUTE = 60;
+
+    /** @var int 会话时长小数位数 */
+    private const DURATION_DECIMAL_PLACES = 2;
+
+    /**
+     * 显示所有用户列表
+     *
+     * @return View
+     */
+    public function allUsers(): View
     {
         $pageTitle = 'All Users';
         $users     = $this->userData();
         return view('admin.users.list', compact('pageTitle', 'users'));
     }
 
-    public function activeUsers()
+    /**
+     * 显示活跃用户列表
+     *
+     * @return View
+     */
+    public function activeUsers(): View
     {
         $pageTitle = 'Active Users';
         $users     = $this->userData('active');
         return view('admin.users.list', compact('pageTitle', 'users'));
     }
 
-    public function bannedUsers()
+    /**
+     * 显示被封禁用户列表
+     *
+     * @return View
+     */
+    public function bannedUsers(): View
     {
         $pageTitle = 'Banned Users';
         $users     = $this->userData('banned');
         return view('admin.users.list', compact('pageTitle', 'users'));
     }
 
-    public function emailUnverifiedUsers()
+    /**
+     * 显示邮箱未验证用户列表
+     *
+     * @return View
+     */
+    public function emailUnverifiedUsers(): View
     {
         $pageTitle = 'Email Unverified Users';
         $users     = $this->userData('emailUnverified');
         return view('admin.users.list', compact('pageTitle', 'users'));
     }
 
-    public function kycUnverifiedUsers()
+    /**
+     * 显示KYC未验证用户列表
+     *
+     * @return View
+     */
+    public function kycUnverifiedUsers(): View
     {
         $pageTitle = 'KYC Unverified Users';
         $users     = $this->userData('kycUnverified');
         return view('admin.users.list', compact('pageTitle', 'users'));
     }
 
-    public function kycPendingUsers()
+    /**
+     * 显示KYC待审核用户列表
+     *
+     * @return View
+     */
+    public function kycPendingUsers(): View
     {
         $pageTitle = 'KYC Pending Users';
         $users     = $this->userData('kycPending');
         return view('admin.users.list', compact('pageTitle', 'users'));
     }
 
-    public function emailVerifiedUsers()
+    /**
+     * 显示邮箱已验证用户列表
+     *
+     * @return View
+     */
+    public function emailVerifiedUsers(): View
     {
         $pageTitle = 'Email Verified Users';
         $users     = $this->userData('emailVerified');
         return view('admin.users.list', compact('pageTitle', 'users'));
     }
 
-
-    public function mobileUnverifiedUsers()
+    /**
+     * 显示手机未验证用户列表
+     *
+     * @return View
+     */
+    public function mobileUnverifiedUsers(): View
     {
         $pageTitle = 'Mobile Unverified Users';
         $users     = $this->userData('mobileUnverified');
         return view('admin.users.list', compact('pageTitle', 'users'));
     }
 
-
-    public function mobileVerifiedUsers()
+    /**
+     * 显示手机已验证用户列表
+     *
+     * @return View
+     */
+    public function mobileVerifiedUsers(): View
     {
         $pageTitle = 'Mobile Verified Users';
         $users     = $this->userData('mobileVerified');
         return view('admin.users.list', compact('pageTitle', 'users'));
     }
 
-
-    public function usersWithBalance()
+    /**
+     * 显示有余额用户列表
+     *
+     * @return View
+     */
+    public function usersWithBalance(): View
     {
         $pageTitle = 'Users with Balance';
         $users     = $this->userData('withBalance');
         return view('admin.users.list', compact('pageTitle', 'users'));
     }
 
-    public function paidUsers()
+    /**
+     * 显示付费用户列表
+     *
+     * @return View
+     */
+    public function paidUsers(): View
     {
         $pageTitle = 'Paid Users';
         $users     = $this->userData('paidUser');
         return view('admin.users.list', compact('pageTitle', 'users'));
     }
 
-    public function freeUsers()
+    /**
+     * 显示免费用户列表
+     *
+     * @return View
+     */
+    public function freeUsers(): View
     {
         $pageTitle = 'Free Users';
         $users     = $this->userData('freeUser');
         return view('admin.users.list', compact('pageTitle', 'users'));
     }
 
-    protected function userData($scope = null)
+    /**
+     * 获取用户数据
+     *
+     * @param string|null $scope
+     * @return LengthAwarePaginator
+     */
+    protected function userData(?string $scope = null): LengthAwarePaginator
     {
         if ($scope) {
             $users = User::$scope();
@@ -121,8 +202,13 @@ class ManageUsersController extends Controller
         return $users->searchable(['username', 'email'])->orderBy('id', 'desc')->paginate(getPaginate());
     }
 
-
-    public function detail($id)
+    /**
+     * 显示用户详情
+     *
+     * @param int $id
+     * @return View
+     */
+    public function detail(int $id): View
     {
         $user      = User::findOrFail($id);
         $pageTitle = 'User Detail - ' . $user->username;
@@ -131,20 +217,31 @@ class ManageUsersController extends Controller
         $totalWithdrawals = Withdrawal::where('user_id', $user->id)->approved()->sum('amount');
         $totalTransaction = Transaction::where('user_id', $user->id)->count();
         $countries        = json_decode(file_get_contents(resource_path('views/partials/country.json')));
-        $totalBvCut       = BvLog::where('user_id', $user->id)->where('trx_type', '-')->sum('amount');
+        $totalBvCut       = BvLog::where('user_id', $user->id)->where('trx_type', self::BV_TRX_TYPE_MINUS)->sum('amount');
         $totalOrder       = Order::where('user_id', $user->id)->count();
         return view('admin.users.detail', compact('pageTitle', 'user', 'totalDeposit', 'totalWithdrawals', 'totalTransaction', 'countries', 'totalBvCut', 'totalOrder'));
     }
 
-
-    public function kycDetails($id)
+    /**
+     * 显示KYC详情
+     *
+     * @param int $id
+     * @return View
+     */
+    public function kycDetails(int $id): View
     {
         $pageTitle = 'KYC Details';
         $user      = User::findOrFail($id);
         return view('admin.users.kyc_detail', compact('pageTitle', 'user'));
     }
 
-    public function kycApprove($id)
+    /**
+     * 批准KYC验证
+     *
+     * @param int $id
+     * @return RedirectResponse
+     */
+    public function kycApprove(int $id): RedirectResponse
     {
         $user     = User::findOrFail($id);
         $user->kv = Status::KYC_VERIFIED;
@@ -156,7 +253,14 @@ class ManageUsersController extends Controller
         return to_route('admin.users.kyc.pending')->withNotify($notify);
     }
 
-    public function kycReject(Request $request, $id)
+    /**
+     * 拒绝KYC验证
+     *
+     * @param Request $request
+     * @param int $id
+     * @return RedirectResponse
+     */
+    public function kycReject(Request $request, int $id): RedirectResponse
     {
         $request->validate([
             'reason' => 'required'
@@ -175,7 +279,14 @@ class ManageUsersController extends Controller
     }
 
 
-    public function update(Request $request, $id)
+    /**
+     * 更新用户信息
+     *
+     * @param Request $request
+     * @param int $id
+     * @return RedirectResponse
+     */
+    public function update(Request $request, int $id): RedirectResponse
     {
         $user         = User::findOrFail($id);
         $countryData  = json_decode(file_get_contents(resource_path('views/partials/country.json')));
@@ -235,7 +346,14 @@ class ManageUsersController extends Controller
         return back()->withNotify($notify);
     }
 
-    public function addSubBalance(Request $request, $id)
+    /**
+     * 增加或减少用户余额
+     *
+     * @param Request $request
+     * @param int $id
+     * @return RedirectResponse
+     */
+    public function addSubBalance(Request $request, int $id): RedirectResponse
     {
         $request->validate([
             'amount' => 'required|numeric|gt:0',
@@ -294,19 +412,19 @@ class ManageUsersController extends Controller
     }
 
     /**
-     * Start admin impersonation of a user
-     * This is a critical security function that requires:
-     * 1. Admin authentication
-     * 2. 2FA verification if user has it enabled
-     * 3. Comprehensive audit logging
-     * 4. Session flagging for impersonation
-     * 5. Time-limited access
+     * 管理员模拟用户登录
+     * 这是一个关键的安全功能，需要：
+     * 1. 管理员身份验证
+     * 2. 如果用户启用了2FA，需要验证
+     * 3. 完整的审计日志记录
+     * 4. 会话标记为模拟
+     * 5. 时间限制访问
      *
-     * @param int $id User ID to impersonate
+     * @param int $id 要模拟的用户ID
      * @param Request $request
-     * @return \Illuminate\Http\RedirectResponse
+     * @return RedirectResponse
      */
-    public function login($id, Request $request)
+    public function login(int $id, Request $request): RedirectResponse
     {
         // Verify admin is authenticated
         if (!auth()->guard('admin')->check()) {
@@ -344,12 +462,12 @@ class ManageUsersController extends Controller
     }
 
     /**
-     * Show 2FA verification form for impersonation
+     * 显示模拟登录的2FA验证表单
      *
-     * @param int $id User ID being impersonated
-     * @return \Illuminate\Http\Response
+     * @param int $id 被模拟的用户ID
+     * @return View
      */
-    public function show2FAForm($id)
+    public function show2FAForm(int $id): View
     {
         // Verify admin is authenticated
         if (!auth()->guard('admin')->check()) {
@@ -381,13 +499,13 @@ class ManageUsersController extends Controller
     }
 
     /**
-     * Verify 2FA code for impersonation
+     * 验证模拟登录的2FA验证码
      *
      * @param Request $request
-     * @param int $id User ID being impersonated
-     * @return \Illuminate\Http\RedirectResponse
+     * @param int $id 被模拟的用户ID
+     * @return RedirectResponse
      */
-    public function verify2FA(Request $request, $id)
+    public function verify2FA(Request $request, int $id): RedirectResponse
     {
         $request->validate([
             'code' => 'required',
@@ -424,14 +542,14 @@ class ManageUsersController extends Controller
     }
 
     /**
-     * Perform the actual impersonation with all security checks
+     * 执行实际的模拟登录，包含所有安全检查
      *
-     * @param Admin $admin Admin performing impersonation
-     * @param User $user User being impersonated
+     * @param Admin $admin 执行模拟的管理员
+     * @param User $user 被模拟的用户
      * @param Request $request
-     * @return \Illuminate\Http\RedirectResponse
+     * @return RedirectResponse
      */
-    private function performImpersonation(Admin $admin, User $user, Request $request)
+    private function performImpersonation(Admin $admin, User $user, Request $request): RedirectResponse
     {
         // Start database transaction for data integrity
         DB::beginTransaction();
@@ -509,12 +627,12 @@ class ManageUsersController extends Controller
     }
 
     /**
-     * Exit impersonation mode and return to admin panel
+     * 退出模拟模式并返回管理员面板
      *
      * @param Request $request
-     * @return \Illuminate\Http\RedirectResponse
+     * @return RedirectResponse
      */
-    public function exitImpersonation(Request $request)
+    public function exitImpersonation(Request $request): RedirectResponse
     {
         // Check if currently impersonating
         if (!Session::has('is_impersonating') || !Session::get('is_impersonating')) {
@@ -570,29 +688,36 @@ class ManageUsersController extends Controller
     }
 
     /**
-     * Check if current session is an impersonation
+     * 检查当前会话是否为模拟登录
      *
      * @return bool
      */
-    public function isImpersonating()
+    public function isImpersonating(): bool
     {
         return Session::has('is_impersonating') && Session::get('is_impersonating');
     }
 
     /**
-     * Calculate session duration in minutes
+     * 计算会话时长（分钟）
      *
      * @param array $impersonatorData
      * @return float
      */
-    private function calculateSessionDuration(array $impersonatorData)
+    private function calculateSessionDuration(array $impersonatorData): float
     {
         $startTime = $impersonatorData['impersonation_start_time'] ?? time();
         $endTime = time();
         return round(($endTime - $startTime) / 60, 2);
     }
 
-    public function status(Request $request, $id)
+    /**
+     * 切换用户状态（启用/禁用）
+     *
+     * @param Request $request
+     * @param int $id
+     * @return RedirectResponse
+     */
+    public function status(Request $request, int $id): RedirectResponse
     {
         $user = User::findOrFail($id);
         if ($user->status == Status::USER_ACTIVE) {
@@ -612,7 +737,13 @@ class ManageUsersController extends Controller
     }
 
 
-    public function showNotificationSingleForm($id)
+    /**
+     * 显示单个用户通知表单
+     *
+     * @param int $id
+     * @return View
+     */
+    public function showNotificationSingleForm(int $id): View
     {
         $user = User::findOrFail($id);
         if (!gs('en') && !gs('sn') && !gs('pn')) {
@@ -623,7 +754,14 @@ class ManageUsersController extends Controller
         return view('admin.users.notification_single', compact('pageTitle', 'user'));
     }
 
-    public function sendNotificationSingle(Request $request, $id)
+    /**
+     * 发送单个用户通知
+     *
+     * @param Request $request
+     * @param int $id
+     * @return RedirectResponse
+     */
+    public function sendNotificationSingle(Request $request, int $id): RedirectResponse
     {
         $request->validate([
             'message' => 'required',
@@ -657,7 +795,12 @@ class ManageUsersController extends Controller
         return back()->withNotify($notify);
     }
 
-    public function showNotificationAllForm()
+    /**
+     * 显示批量通知表单
+     *
+     * @return View
+     */
+    public function showNotificationAllForm(): View
     {
         if (!gs('en') && !gs('sn') && !gs('pn')) {
             $notify[] = ['warning', 'Notification options are disabled currently'];
@@ -675,7 +818,13 @@ class ManageUsersController extends Controller
         return view('admin.users.notification_all', compact('pageTitle', 'users', 'notifyToUser'));
     }
 
-    public function sendNotificationAll(Request $request)
+    /**
+     * 发送批量通知
+     *
+     * @param Request $request
+     * @return RedirectResponse
+     */
+    public function sendNotificationAll(Request $request): RedirectResponse
     {
         $request->validate([
             'via'                          => 'required|in:email,sms,push',
@@ -754,9 +903,14 @@ class ManageUsersController extends Controller
 
         return $this->sessionForNotification($totalUserCount, $request);
     }
-
-
-    private function sessionForNotification($totalUserCount, $request)
+    /**
+     * 管理通知发送会话状态
+     *
+     * @param int $totalUserCount
+     * @param Request $request
+     * @return RedirectResponse
+     */
+    private function sessionForNotification(int $totalUserCount, Request $request): RedirectResponse
     {
         if (session()->has('SEND_NOTIFICATION')) {
             $sessionData                = session("SEND_NOTIFICATION");
@@ -780,14 +934,21 @@ class ManageUsersController extends Controller
         }
         $notify[] = ['success', $message];
         return redirect($url)->withNotify($notify);
-    }
-
-    public function countBySegment($methodName)
+    }    /**
+     * 按用户群体统计数量
+     *
+     * @param string $methodName
+     * @return int
+     */
+    public function countBySegment(string $methodName): int
     {
         return User::active()->$methodName()->count();
-    }
-
-    public function list()
+    }    /**
+     * 获取用户列表（JSON格式）
+     *
+     * @return JsonResponse
+     */
+    public function list(): JsonResponse
     {
         $query = User::active();
 
@@ -802,17 +963,25 @@ class ManageUsersController extends Controller
             'users'   => $users,
             'more'    => $users->hasMorePages()
         ]);
-    }
-
-    public function notificationLog($id)
+    }    /**
+     * 显示用户通知日志
+     *
+     * @param int $id
+     * @return View
+     */
+    public function notificationLog(int $id): View
     {
         $user      = User::findOrFail($id);
         $pageTitle = 'Notifications Sent to ' . $user->username;
         $logs      = NotificationLog::where('user_id', $id)->with('user')->orderBy('id', 'desc')->paginate(getPaginate());
         return view('admin.reports.notification_history', compact('pageTitle', 'logs', 'user'));
-    }
-
-    public function tree($username)
+    }    /**
+     * 显示用户推荐树
+     *
+     * @param string $username
+     * @return View
+     */
+    public function tree(string $username): View
     {
 
         $user = User::where('username', $username)->first();
@@ -825,9 +994,14 @@ class ManageUsersController extends Controller
 
         $notify[] = ['error', 'Tree Not Found!!'];
         return redirect()->route('admin.dashboard')->withNotify($notify);
-    }
-
-    public function otherTree(Request $request, $username = null)
+    }    /**
+     * 显示其他用户的推荐树
+     *
+     * @param Request $request
+     * @param string|null $username
+     * @return View
+     */
+    public function otherTree(Request $request, ?string $username = null): View
     {
         if ($request->username) {
             $user = User::where('username', $request->username)->first();
@@ -842,18 +1016,26 @@ class ManageUsersController extends Controller
 
         $notify[] = ['error', 'Tree Not Found !'];
         return redirect()->route('admin.dashboard')->withNotify($notify);
-    }
-
-    public function userRef($id)
+    }    /**
+     * 显示用户的推荐人列表
+     *
+     * @param int $id
+     * @return View
+     */
+    public function userRef(int $id): View
     {
         $user      = User::findOrFail($id);
         $pageTitle = 'Referred By ' . $user->username;
         $users     = User::searchable(['username', 'email'])->where('ref_by', $id)->latest()->paginate(getPaginate());
         return view('admin.users.list', compact('pageTitle', 'users'));
     }
-
-
-    public function matchingUpdate(Request $request)
+    /**
+     * 更新匹配奖金设置
+     *
+     * @param Request $request
+     * @return RedirectResponse
+     */
+    public function matchingUpdate(Request $request): RedirectResponse
     {
         $request->validate([
             'bv_price' => 'required|min:0',

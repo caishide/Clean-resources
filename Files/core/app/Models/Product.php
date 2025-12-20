@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Constants\Status;
 use App\Traits\GlobalStatus;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -17,7 +18,7 @@ use Illuminate\Database\Eloquent\Builder;
  */
 class Product extends Model
 {
-    use GlobalStatus;
+    use GlobalStatus, HasFactory;
 
     /**
      * The attributes that are mass assignable.

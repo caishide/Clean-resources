@@ -138,6 +138,14 @@
                                 ['label' => '对碰奖', 'amount' => $pairPaid],
                                 ['label' => '管理奖', 'amount' => $matchingPaid],
                             ];
+                            $totalCap = (float) ($summary['total_cap'] ?? 0);
+                            $variablePotential = (float) ($summary['variable_potential'] ?? 0);
+                            $remainingPool = (float) ($summary['remaining'] ?? 0);
+                            $fixedSales = (float) ($summary['fixed_sales'] ?? 0);
+                            $kAvg = (float) ($summary['k_factor_avg'] ?? 0);
+                            $variablePaid = $pairPaid + $matchingPaid;
+                            $variablePaidRatio = $variablePotential > 0 ? ($variablePaid / $variablePotential) : 0;
+                            $poolUsageRatio = $remainingPool > 0 ? ($variablePaid / $remainingPool) : 0;
                         @endphp
                         <div class="row g-3 mb-3">
                             <div class="col-md-6">
@@ -168,6 +176,22 @@
                                     <div class="d-flex justify-content-between text-dark"><span>功德池金额</span><span>{{ number_format($globalReserve, 2) }}</span></div>
                                     <div class="d-flex justify-content-between text-dark"><span>总拨出金额</span><span>{{ number_format($totalOut, 2) }}</span></div>
                                     <div class="d-flex justify-content-between text-dark"><span>K(均值)</span><span>{{ number_format($summary['k_factor_avg'] ?? 0, 4) }}</span></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row g-3 mb-3">
+                            <div class="col-12">
+                                <div class="p-3 bg-light rounded">
+                                    <div class="text-dark fw-bold mb-2">拨出池拆解（对碰/管理受此约束）</div>
+                                    <div class="d-flex justify-content-between text-dark"><span>总拨出上限（70%）</span><span>{{ number_format($totalCap, 2) }}</span></div>
+                                    <div class="d-flex justify-content-between text-dark"><span>功德池（4%）</span><span>{{ number_format($globalReserve, 2) }}</span></div>
+                                    <div class="d-flex justify-content-between text-dark"><span>刚性支出（直推+层碰）</span><span>{{ number_format($fixedSales, 2) }}</span></div>
+                                    <div class="d-flex justify-content-between text-dark"><span>剩余池（可变奖金上限）</span><span>{{ number_format($remainingPool, 2) }}</span></div>
+                                    <div class="d-flex justify-content-between text-dark"><span>可变理论 A（对碰+管理）</span><span>{{ number_format($variablePotential, 2) }}</span></div>
+                                    <div class="d-flex justify-content-between text-dark"><span>可变实发（对碰+管理）</span><span>{{ number_format($variablePaid, 2) }}</span></div>
+                                    <div class="d-flex justify-content-between text-dark"><span>实发/理论</span><span>{{ number_format($variablePaidRatio * 100, 2) }}%</span></div>
+                                    <div class="d-flex justify-content-between text-dark"><span>实发/剩余池</span><span>{{ number_format($poolUsageRatio * 100, 2) }}%</span></div>
+                                    <div class="d-flex justify-content-between text-dark"><span>K(均值)</span><span>{{ number_format($kAvg, 4) }}</span></div>
                                 </div>
                             </div>
                         </div>

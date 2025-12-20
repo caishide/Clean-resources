@@ -12,6 +12,10 @@ Route::get('cron', 'CronController@cron')->name('cron');
 Route::get('/health', 'HealthController@check')->name('health.check');
 Route::get('/health/metrics', 'HealthController@metrics')->name('health.metrics');
 
+Route::get('/register', function () {
+    return redirect()->route('user.register', request()->query());
+});
+
 // User Support Ticket
 Route::controller('TicketController')->prefix('ticket')->middleware(['throttle:3,1'])->name('ticket.')->group(function () {
     Route::get('/', 'supportTicket')->name('index');
@@ -35,8 +39,8 @@ Route::controller('SiteController')->middleware(['throttle:5,1'])->group(functio
     Route::get('/products/{catId?}', 'products')->name('products');
     Route::get('/product/{id}/{slug}', 'productDetails')->name('product.details');
 
-    Route::get('/blog', 'blog')->name('blog');
-    Route::get('blog/{slug}', 'blogDetails')->name('blog.details');
+    Route::get('/blog', 'blog')->name('blog')->withoutMiddleware('throttle:5,1');
+    Route::get('blog/{slug}', 'blogDetails')->name('blog.details')->withoutMiddleware('throttle:5,1');
     Route::get('faq', 'faq')->name('faq');
 
     Route::post('/check/referral', 'checkUsername')->name('check.referral');
@@ -48,5 +52,5 @@ Route::controller('SiteController')->middleware(['throttle:5,1'])->group(functio
     Route::get('maintenance-mode', 'maintenance')->withoutMiddleware('maintenance')->name('maintenance');
 
     Route::get('/{slug}', 'pages')->name('pages');
-    Route::get('/', 'index')->name('home');
+    Route::get('/', 'index')->name('home')->withoutMiddleware('throttle:5,1');
 });

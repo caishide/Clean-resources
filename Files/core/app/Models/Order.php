@@ -25,8 +25,20 @@ class Order extends Model
         'quantity',
         'price',
         'total_price',
+        'amount',
+        'commission',
         'trx',
         'status',
+    ];
+
+    /**
+     * The attributes that should be cast.
+     *
+     * @var array<string, string>
+     */
+    protected $casts = [
+        'amount' => 'decimal:2',
+        'commission' => 'decimal:2',
     ];
 
     /**

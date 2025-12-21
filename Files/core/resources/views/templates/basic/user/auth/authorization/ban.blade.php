@@ -13,11 +13,11 @@
                         <img src="{{ frontendImage('banned', $bannedContent->data_values->image) }}" alt="image">
                     </div>
                     <div class="text-center mt-5">
-                        <h3 class="text--danger pb-2">@lang('You are banned')</h3>
-                        <p class="fw-bold mb-1">@lang('Reason'):</p>
+                        <h3 class="text--danger pb-2">@lang('user.you_are_banned')</h3>
+                        <p class="fw-bold mb-1">@lang('user.reason'):</p>
                         <p>{{ $user->ban_reason }}</p>
                         <br>
-                        <a href="{{ route('home') }}" class="btn btn--base btn--sm">@lang('Home')</a>
+                        <a href="{{ route('home') }}" class="btn btn--base btn--sm">@lang('user.home')</a>
                     </div>
                 </div>
             </div>

@@ -45,19 +45,19 @@
                             @if ($refUser == null)
                                 <div class="col-md-6">
                                     <div class="form--group">
-                                        <label class="form--label">@lang('Referral Username')</label>
+                                        <label class="form--label">@lang('user.referral_username')</label>
                                         <input class="referral form-control form--control" id="referenceBy" name="referBy" type="text"
-                                            value="{{ old('referBy') }}" placeholder="@lang('Enter referral username')" required>
+                                            value="{{ old('referBy') }}" placeholder="@lang('user.enter_referral_username')" required>
                                         <div id="ref"></div>
                                         <span id="referral"></span>
                                     </div>
                                 </div>
                                 <div class="col-md-6">
                                     <div class="form--group">
-                                        <label class="form--label">@lang('Position')</label>
+                                        <label class="form--label">@lang('user.position')</label>
                                         <select class="position form--control form-select select2" id="position" name="position" required
                                             data-minimum-results-for-search="-1">
-                                            <option value="" selected disabled>@lang('Select position')</option>
+                                            <option value="" selected disabled>@lang('user.select_position')</option>
                                             @foreach (mlmPositions() as $k => $v)
                                                 <option value="{{ $k }}">@lang($v)</option>
                                             @endforeach
@@ -68,17 +68,17 @@
                             @else
                                 <div class="col-md-6">
                                     <div class="form--group">
-                                        <label class="form--label">@lang('Referral Username')</label>
+                                        <label class="form--label">@lang('user.referral_username')</label>
                                         <input class="referral form-control form--control"value="{{ $refUser->username }}" id="ref_name" name="referBy"
-                                            type="text" placeholder="@lang('Enter referral username')*" required readonly>
+                                            type="text" placeholder="@lang('user.enter_referral_username')*" required readonly>
                                     </div>
                                 </div>
 
                                 <div class="col-md-6">
                                     <div class="form--group">
-                                        <label class="form--label">@lang('Position')</label>
+                                        <label class="form--label">@lang('user.position')</label>
                                         <select class="position form--control form-select" id="position" required>
-                                            <option value="" selected hidden>@lang('Select position')</option>
+                                            <option value="" selected hidden>@lang('user.select_position')</option>
                                             @foreach (mlmPositions() as $k => $v)
                                                 <option value="{{ $k }}" @if ($position == $k) selected @endif>@lang($v)
                                                 </option>
@@ -105,14 +105,14 @@
                         <div class="row">
                             <div class="col-lg-6">
                                 <div class="form--group">
-                                    <label class="form--label">@lang('First Name')</label>
+                                    <label class="form--label">@lang('user.first_name')</label>
                                     <input class="form-control form--control" name="firstname" type="text" value="{{ old('firstname') }}" required
                                         placeholder="Enter Your First Name">
                                 </div>
                             </div>
                             <div class="col-lg-6">
                                 <div class="form--group">
-                                    <label class="form--label">@lang('Last Name')</label>
+                                    <label class="form--label">@lang('user.last_name')</label>
                                     <input class="form-control form--control" name="lastname" type="text" value="{{ old('lastname') }}" required
                                         placeholder="Enter Your Last Name">
                                 </div>
@@ -122,7 +122,7 @@
                         <div class="row">
                             <div class="col-lg-12">
                                 <div class="form--group">
-                                    <label class="form--label">@lang('Email')</label>
+                                    <label class="form--label">@lang('user.email')</label>
                                     <input class="form-control form--control checkUser" name="email" type="email" required
                                         placeholder="Enter Your Email">
                                 </div>
@@ -132,7 +132,7 @@
                         <div class="row">
                             <div class="col-lg-6">
                                 <div class="form--group hover-input-popup">
-                                    <label class="form--label">@lang('Password')</label>
+                                    <label class="form--label">@lang('user.password')</label>
                                     <input class="form-control form--control @if (gs('secure_password')) secure-password @endif" name="password"
                                         type="password" required placeholder="Enter Password">
 
@@ -140,7 +140,7 @@
                             </div>
                             <div class="col-lg-6">
                                 <div class="form--group">
-                                    <label class="form--label">@lang('Re-Password')</label>
+                                    <label class="form--label">@lang('user.re_password')</label>
                                     <input class="form-control form--control" name="password_confirmation" type="password" required
                                         placeholder="Confirm Password">
                                 </div>
@@ -159,7 +159,7 @@
 
                             <div class="form-group">
                                 <input id="agree" name="agree" type="checkbox" @checked(old('agree')) required>
-                                <label for="agree">@lang('I agree with')</label>
+                                <label for="agree">@lang('user.i_agree_with')</label>
                                 @foreach ($policyPages as $policy)
                                     <a class="text-primary" href="{{ route('policy.pages', $policy->slug) }}"
                                         target="_blank">{{ __($policy->data_values->title) }}</a>
@@ -171,8 +171,8 @@
                         @endif
 
                         <div class="form--group button-wrapper">
-                            <button class="account--btn" type="submit">@lang('Create Account')</button>
-                            <a class="custom--btn" href="{{ route('user.login') }}"><span>@lang('Login Account')</span></a>
+                            <button class="account--btn" type="submit">@lang('user.create_account')</button>
+                            <a class="custom--btn" href="{{ route('user.login') }}"><span>@lang('user.sign_in')</span></a>
                         </div>
                     </form>
                 </div>
@@ -187,17 +187,17 @@
         <div class="modal-dialog modal-dialog-centered" role="document">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="existModalLongTitle">@lang('You are with us')</h5>
+                    <h5 class="modal-title" id="existModalLongTitle">@lang('user.you_are_with_us')</h5>
                     <span class="close" data-bs-dismiss="modal" type="button" aria-label="Close">
                         <i class="las la-times"></i>
                     </span>
                 </div>
                 <div class="modal-body">
-                    <h6 class="text-center">@lang('You already have an account please Login ')</h6>
+                    <h6 class="text-center">@lang('user.you_already_have_account')</h6>
                 </div>
                 <div class="modal-footer">
-                    <button class="btn--sm btn btn-dark" data-bs-dismiss="modal" type="button">@lang('Close')</button>
-                    <a class="btn--sm btn btn--base" href="{{ route('user.login') }}">@lang('Login')</a>
+                    <button class="btn--sm btn btn-dark" data-bs-dismiss="modal" type="button">@lang('user.close')</button>
+                    <a class="btn--sm btn btn--base" href="{{ route('user.login') }}">@lang('user.sign_in')</a>
                 </div>
             </div>
         </div>

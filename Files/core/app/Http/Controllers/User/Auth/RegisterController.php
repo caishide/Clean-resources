@@ -70,8 +70,6 @@ class RegisterController extends Controller
             return back();
         }
 
-        $request->session()->regenerateToken();
-
         if (!verifyCaptcha()) {
             $notify[] = ['error', 'Invalid captcha provided'];
             return back()->withNotify($notify);
@@ -96,6 +94,8 @@ class RegisterController extends Controller
                 return back()->withNotify($notify)->withInput();
             }
         }
+
+        $request->session()->regenerateToken();
 
         event(new Registered($user = $this->create($validated)));
 

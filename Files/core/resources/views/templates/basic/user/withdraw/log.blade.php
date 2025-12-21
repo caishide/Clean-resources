@@ -3,14 +3,14 @@
     <div class="d-flex align-items-center justify-content-end mb-3 flex-wrap gap-3">
         <form>
             <div class="input-group">
-                <input class="form-control form--control" name="search" type="search" value="{{ request()->search }}" placeholder="@lang('Search by transactions')">
+                <input class="form-control form--control" name="search" type="search" value="{{ request()->search }}" placeholder="@lang('user.search_by_transactions')">
                 <button class="input-group-text">
                     <i class="las la-search"></i>
                 </button>
             </div>
         </form>
         <a class="btn btn--base" href="{{ route('user.withdraw') }}">
-            <i class="las la-plus"></i> @lang('Withdraw Now')
+            <i class="las la-plus"></i> @lang('user.withdraw_now')
         </a>
     </div>
     <div class="card custom--card p-0">

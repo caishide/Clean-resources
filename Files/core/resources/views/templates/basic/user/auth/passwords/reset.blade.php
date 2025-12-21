@@ -6,22 +6,22 @@
             <div class="card custom--card">
                 <div class="card-body">
                     <div class="mb-4">
-                        <p>@lang('Your account is verified successfully. Now you can change your password. Please enter a strong password and don\'t share it with anyone.')</p>
+                        <p>@lang('user.account_verified_successfully')</p>
                     </div>
                     <form method="POST" action="{{ route('user.password.update') }}">
                         @csrf
                         <input type="hidden" name="email" value="{{ $email }}">
                         <input type="hidden" name="token" value="{{ $token }}">
                         <div class="form--group">
-                            <label class="form--label">@lang('Password')</label>
+                            <label class="form--label">@lang('user.password')</label>
                             <input type="password" class="form-control form--control @if(gs('secure_password')) secure-password @endif" name="password" required>
                         </div>
                         <div class="form--group">
-                            <label class="form--label">@lang('Confirm Password')</label>
+                            <label class="form--label">@lang('user.confirm_password')</label>
                             <input type="password" class="form-control form--control" name="password_confirmation" required>
                         </div>
                       
-                            <button type="submit" class="btn btn--base w-100"> @lang('Submit')</button>
+                            <button type="submit" class="btn btn--base w-100"> @lang('user.submit')</button>
                        
                     </form>
                 </div>

@@ -29,13 +29,13 @@
                     <x-widget type="2" value="{{ getAmount($totalBvCut) }}" title="Total Cut BV" style="7" link="{{ route('admin.report.bvLog', $user->id) }}?type=cutBV" icon="la la-cut" bg="4" />
                 </div>
                 <div class="col-xxl-3 col-sm-6">
-                    <x-widget type="2" value="{{ getAmount($user->userExtra->bv_left) }}" title="Left BV" style="7" link="{{ route('admin.report.bvLog', $user->id) }}?type=leftBV" icon="las la-arrow-alt-circle-left" bg="1" />
+                    <x-widget type="2" value="{{ getAmount($user->userExtra?->bv_left ?? 0) }}" title="Left BV" style="7" link="{{ route('admin.report.bvLog', $user->id) }}?type=leftBV" icon="las la-arrow-alt-circle-left" bg="1" />
                 </div>
                 <div class="col-xxl-3 col-sm-6">
-                    <x-widget type="2" value="{{ getAmount($user->userExtra->bv_right) }}" title="Right BV" style="7" link="{{ route('admin.report.bvLog', $user->id) }}?type=rightBV" icon="las la-arrow-alt-circle-right" bg="13" />
+                    <x-widget type="2" value="{{ getAmount($user->userExtra?->bv_right ?? 0) }}" title="Right BV" style="7" link="{{ route('admin.report.bvLog', $user->id) }}?type=rightBV" icon="las la-arrow-alt-circle-right" bg="13" />
                 </div>
                 <div class="col-xxl-3 col-sm-6">
-                    <x-widget type="2" value="{{ getAmount($user->userExtra->bv_left + $user->userExtra->bv_right) }}" title="Total BV" style="7" link="{{ route('admin.report.bvLog', $user->id) }}" icon="las la-arrow-alt-circle-right" bg="14" />
+                    <x-widget type="2" value="{{ getAmount(($user->userExtra?->bv_left ?? 0) + ($user->userExtra?->bv_right ?? 0)) }}" title="Total BV" style="7" link="{{ route('admin.report.bvLog', $user->id) }}" icon="las la-arrow-alt-circle-right" bg="14" />
                 </div>
                 <div class="col-xxl-3 col-sm-6">
                     <x-widget type="2" value="{{ $totalOrder }}" title="Total Orders" style="7"

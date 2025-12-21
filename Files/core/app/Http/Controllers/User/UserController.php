@@ -23,7 +23,7 @@ class UserController extends Controller
 {
     public function home()
     {
-        $pageTitle        = 'Dashboard';
+        $pageTitle        = 'user.dashboard';
         $totalDeposit     = Deposit::where('user_id', auth()->id())->where('status', 1)->sum('amount');
         $totalWithdraw    = Withdrawal::where('user_id', auth()->id())->where('status', 1)->sum('amount');
         $completeWithdraw = Withdrawal::where('user_id', auth()->id())->where('status', 1)->count();
@@ -35,7 +35,7 @@ class UserController extends Controller
 
     public function depositHistory(Request $request)
     {
-        $pageTitle = 'Deposit History';
+        $pageTitle = 'user.deposit_history';
         $deposits  = auth()->user()->deposits()->searchable(['trx'])->with(['gateway'])->orderBy('id', 'desc')->paginate(getPaginate());
         return view('Template::user.deposit_history', compact('pageTitle', 'deposits'));
     }
@@ -46,7 +46,7 @@ class UserController extends Controller
         $user      = auth()->user();
         $secret    = $ga->createSecret();
         $qrCodeUrl = $ga->getQRCodeGoogleUrl($user->username . '@' . gs('site_name'), $secret);
-        $pageTitle = '2FA Security';
+        $pageTitle = 'user.two_fa_security';
         return view('Template::user.twofactor', compact('pageTitle', 'secret', 'qrCodeUrl'));
     }
 
@@ -107,7 +107,7 @@ class UserController extends Controller
             $notify[] = ['error', 'You are already KYC verified'];
             return to_route('user.home')->withNotify($notify);
         }
-        $pageTitle = 'KYC Form';
+        $pageTitle = 'user.kyc_form';
         $form      = Form::where('act', 'kyc')->first();
         return view('Template::user.kyc.form', compact('pageTitle', 'form'));
     }
@@ -115,7 +115,7 @@ class UserController extends Controller
     public function kycData()
     {
         $user      = auth()->user();
-        $pageTitle = 'KYC Document';
+        $pageTitle = 'user.kyc_document';
         abort_if($user->kv == Status::VERIFIED, 403);
         return view('Template::user.kyc.info', compact('pageTitle', 'user'));
     }
@@ -352,7 +352,7 @@ class UserController extends Controller
 
     public function indexTransfer()
     {
-        $pageTitle = 'Balance Transfer';
+        $pageTitle = 'user.balance_transfer';
         return view('Template::user.balanceTransfer', compact('pageTitle'));
     }
 
@@ -456,8 +456,15 @@ class UserController extends Controller
 
     public function orders()
     {
-        $pageTitle = 'Orders';
+        $pageTitle = 'user.orders';
         $orders    = Order::where('user_id', auth()->user()->id)->with('product')->orderBy('id', 'desc')->paginate(getPaginate());
         return view('Template::user.orders', compact('pageTitle', 'orders'));
+    }
+
+    public function binarySummery()
+    {
+        $pageTitle = 'user.binary_summary';
+        $user      = auth()->user();
+        return view('Template::user.binarySummery', compact('pageTitle', 'user'));
     }
 }

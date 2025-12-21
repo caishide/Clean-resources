@@ -25,35 +25,35 @@ class HealthController extends Controller
     /**
      * Check overall system health
      *
-     * @param Request \$request
+     * @param Request $request
      * @return JsonResponse
      */
-    public function check(Request \$request): JsonResponse
+    public function check(Request $request): JsonResponse
     {
-        \$checks = [
-            'database' => \$this->checkDatabase(),
-            'cache' => \$this->checkCache(),
-            'disk_space' => \$this->checkDiskSpace(),
-            'memory' => \$this->checkMemory(),
-            'app' => \$this->checkApplication(),
+        $checks = [
+            'database' => $this->checkDatabase(),
+            'cache' => $this->checkCache(),
+            'disk_space' => $this->checkDiskSpace(),
+            'memory' => $this->checkMemory(),
+            'app' => $this->checkApplication(),
         ];
 
-        \$overallStatus = collect(\$checks)->every(fn(\$check) => \$check['status'] === 'ok') ? 'ok' : 'error';
+        $overallStatus = collect($checks)->every(fn($check) => $check['status'] === 'ok') ? 'ok' : 'error';
 
-        \$response = [
-            'status' => \$overallStatus,
+        $response = [
+            'status' => $overallStatus,
             'timestamp' => now()->toISOString(),
             'environment' => app()->environment(),
             'version' => app()->version(),
-            'checks' => \$checks,
+            'checks' => $checks,
         ];
 
         // Log health check results
-        Log::channel('health')->info('Health check performed', \$response);
+        Log::channel('health')->info('Health check performed', $response);
 
-        \$statusCode = \$overallStatus === 'ok' ? 200 : 503;
+        $statusCode = $overallStatus === 'ok' ? 200 : 503;
 
-        return response()->json(\$response, \$statusCode);
+        return response()->json($response, $statusCode);
     }
 
     /**
@@ -64,22 +64,22 @@ class HealthController extends Controller
     private function checkDatabase(): array
     {
         try {
-            \$start = microtime(true);
+            $start = microtime(true);
             DB::connection()->getPdo();
-            \$responseTime = (microtime(true) - \$start) * 1000;
+            $responseTime = (microtime(true) - $start) * 1000;
 
             return [
                 'status' => 'ok',
                 'message' => 'Database connection successful',
-                'response_time_ms' => round(\$responseTime, 2),
+                'response_time_ms' => round($responseTime, 2),
                 'connection' => config('database.default'),
             ];
-        } catch (\Exception \$e) {
-            Log::channel('health')->error('Database health check failed', ['error' => \$e->getMessage()]);
+        } catch (\Exception $e) {
+            Log::channel('health')->error('Database health check failed', ['error' => $e->getMessage()]);
 
             return [
                 'status' => 'error',
-                'message' => 'Database connection failed: ' . \$e->getMessage(),
+                'message' => 'Database connection failed: ' . $e->getMessage(),
             ];
         }
     }
@@ -92,20 +92,20 @@ class HealthController extends Controller
     private function checkCache(): array
     {
         try {
-            \$cacheDriver = config('cache.default');
-            \$testKey = 'health_check_' . time();
-            \$testValue = 'test_' . now()->toISOString();
+            $cacheDriver = config('cache.default');
+            $testKey = 'health_check_' . time();
+            $testValue = 'test_' . now()->toISOString();
 
             // Try to write and read from cache
-            Cache::put(\$testKey, \$testValue, 10);
-            \$cachedValue = Cache::get(\$testKey);
-            Cache::forget(\$testKey);
+            Cache::put($testKey, $testValue, 10);
+            $cachedValue = Cache::get($testKey);
+            Cache::forget($testKey);
 
-            if (\$cachedValue === \$testValue) {
+            if ($cachedValue === $testValue) {
                 return [
                     'status' => 'ok',
                     'message' => 'Cache connection successful',
-                    'driver' => \$cacheDriver,
+                    'driver' => $cacheDriver,
                 ];
             }
 
@@ -113,12 +113,12 @@ class HealthController extends Controller
                 'status' => 'error',
                 'message' => 'Cache read/write test failed',
             ];
-        } catch (\Exception \$e) {
-            Log::channel('health')->error('Cache health check failed', ['error' => \$e->getMessage()]);
+        } catch (\Exception $e) {
+            Log::channel('health')->error('Cache health check failed', ['error' => $e->getMessage()]);
 
             return [
                 'status' => 'error',
-                'message' => 'Cache connection failed: ' . \$e->getMessage(),
+                'message' => 'Cache connection failed: ' . $e->getMessage(),
             ];
         }
     }
@@ -131,25 +131,25 @@ class HealthController extends Controller
     private function checkDiskSpace(): array
     {
         try {
-            \$totalSpace = disk_total_space(base_path());
-            \$freeSpace = disk_free_space(base_path());
-            \$usedSpace = \$totalSpace - \$freeSpace;
-            \$usedPercentage = (\$usedSpace / \$totalSpace) * 100;
+            $totalSpace = disk_total_space(base_path());
+            $freeSpace = disk_free_space(base_path());
+            $usedSpace = $totalSpace - $freeSpace;
+            $usedPercentage = ($usedSpace / $totalSpace) * 100;
 
-            \$status = \$usedPercentage < 90 ? 'ok' : (\$usedPercentage < 95 ? 'warning' : 'error');
+            $status = $usedPercentage < 90 ? 'ok' : ($usedPercentage < 95 ? 'warning' : 'error');
 
             return [
-                'status' => \$status,
+                'status' => $status,
                 'message' => 'Disk space check',
-                'total_gb' => round(\$totalSpace / 1024 / 1024 / 1024, 2),
-                'free_gb' => round(\$freeSpace / 1024 / 1024 / 1024, 2),
-                'used_gb' => round(\$usedSpace / 1024 / 1024 / 1024, 2),
-                'used_percentage' => round(\$usedPercentage, 2),
+                'total_gb' => round($totalSpace / 1024 / 1024 / 1024, 2),
+                'free_gb' => round($freeSpace / 1024 / 1024 / 1024, 2),
+                'used_gb' => round($usedSpace / 1024 / 1024 / 1024, 2),
+                'used_percentage' => round($usedPercentage, 2),
             ];
-        } catch (\Exception \$e) {
+        } catch (\Exception $e) {
             return [
                 'status' => 'error',
-                'message' => 'Disk space check failed: ' . \$e->getMessage(),
+                'message' => 'Disk space check failed: ' . $e->getMessage(),
             ];
         }
     }
@@ -162,25 +162,25 @@ class HealthController extends Controller
     private function checkMemory(): array
     {
         try {
-            \$memoryUsage = memory_get_usage(true);
-            \$memoryPeak = memory_get_peak_usage(true);
-            \$memoryLimit = \$this->parseMemoryLimit(ini_get('memory_limit'));
-            \$memoryUsagePercentage = (\$memoryUsage / \$memoryLimit) * 100;
+            $memoryUsage = memory_get_usage(true);
+            $memoryPeak = memory_get_peak_usage(true);
+            $memoryLimit = $this->parseMemoryLimit(ini_get('memory_limit'));
+            $memoryUsagePercentage = ($memoryUsage / $memoryLimit) * 100;
 
-            \$status = \$memoryUsagePercentage < 80 ? 'ok' : (\$memoryUsagePercentage < 90 ? 'warning' : 'error');
+            $status = $memoryUsagePercentage < 80 ? 'ok' : ($memoryUsagePercentage < 90 ? 'warning' : 'error');
 
             return [
-                'status' => \$status,
+                'status' => $status,
                 'message' => 'Memory usage check',
-                'current_mb' => round(\$memoryUsage / 1024 / 1024, 2),
-                'peak_mb' => round(\$memoryPeak / 1024 / 1024, 2),
-                'limit_mb' => round(\$memoryLimit / 1024 / 1024, 2),
-                'usage_percentage' => round(\$memoryUsagePercentage, 2),
+                'current_mb' => round($memoryUsage / 1024 / 1024, 2),
+                'peak_mb' => round($memoryPeak / 1024 / 1024, 2),
+                'limit_mb' => round($memoryLimit / 1024 / 1024, 2),
+                'usage_percentage' => round($memoryUsagePercentage, 2),
             ];
-        } catch (\Exception \$e) {
+        } catch (\Exception $e) {
             return [
                 'status' => 'error',
-                'message' => 'Memory check failed: ' . \$e->getMessage(),
+                'message' => 'Memory check failed: ' . $e->getMessage(),
             ];
         }
     }
@@ -194,22 +194,22 @@ class HealthController extends Controller
     {
         try {
             // Check if migrations are up to date
-            \$migrationsTableExists = Schema::hasTable('migrations');
-            \$cacheStatus = app()->has('cache') ? 'ok' : 'warning';
+            $migrationsTableExists = Schema::hasTable('migrations');
+            $cacheStatus = app()->has('cache') ? 'ok' : 'warning';
 
             return [
                 'status' => 'ok',
                 'message' => 'Application is running',
-                'uptime' => \$this->getUptime(),
+                'uptime' => $this->getUptime(),
                 'laravel_version' => app()->version(),
                 'php_version' => PHP_VERSION,
-                'migrations_table' => \$migrationsTableExists ? 'exists' : 'missing',
-                'cache' => \$cacheStatus,
+                'migrations_table' => $migrationsTableExists ? 'exists' : 'missing',
+                'cache' => $cacheStatus,
             ];
-        } catch (\Exception \$e) {
+        } catch (\Exception $e) {
             return [
                 'status' => 'error',
-                'message' => 'Application check failed: ' . \$e->getMessage(),
+                'message' => 'Application check failed: ' . $e->getMessage(),
             ];
         }
     }
@@ -217,16 +217,16 @@ class HealthController extends Controller
     /**
      * Parse memory limit string to bytes
      */
-    private function parseMemoryLimit(string \$limit): int
+    private function parseMemoryLimit(string $limit): int
     {
-        \$unit = strtolower(substr(\$limit, -1));
-        \$value = (int) \$limit;
+        $unit = strtolower(substr($limit, -1));
+        $value = (int) $limit;
 
-        return match (\$unit) {
-            'g' => \$value * 1024 * 1024 * 1024,
-            'm' => \$value * 1024 * 1024,
-            'k' => \$value * 1024,
-            default => \$value,
+        return match ($unit) {
+            'g' => $value * 1024 * 1024 * 1024,
+            'm' => $value * 1024 * 1024,
+            'k' => $value * 1024,
+            default => $value,
         };
     }
 
@@ -236,14 +236,14 @@ class HealthController extends Controller
     private function getUptime(): string
     {
         if (file_exists(base_path('.app_start_time'))) {
-            \$startTime = file_get_contents(base_path('.app_start_time'));
-            \$uptimeSeconds = time() - (int) \$startTime;
+            $startTime = file_get_contents(base_path('.app_start_time'));
+            $uptimeSeconds = time() - (int) $startTime;
 
-            \$days = floor(\$uptimeSeconds / 86400);
-            \$hours = floor((\$uptimeSeconds % 86400) / 3600);
-            \$minutes = floor((\$uptimeSeconds % 3600) / 60);
+            $days = floor($uptimeSeconds / 86400);
+            $hours = floor(($uptimeSeconds % 86400) / 3600);
+            $minutes = floor(($uptimeSeconds % 3600) / 60);
 
-            return sprintf('%d days, %d hours, %d minutes', \$days, \$hours, \$minutes);
+            return sprintf('%d days, %d hours, %d minutes', $days, $hours, $minutes);
         }
 
         return 'unknown';
@@ -252,15 +252,15 @@ class HealthController extends Controller
     /**
      * Get detailed system metrics
      */
-    public function metrics(Request \$request): JsonResponse
+    public function metrics(Request $request): JsonResponse
     {
-        \$metrics = [
+        $metrics = [
             'system' => [
                 'cpu_usage' => sys_getloadavg(),
                 'memory' => [
                     'used' => memory_get_usage(true),
                     'peak' => memory_get_peak_usage(true),
-                    'limit' => \$this->parseMemoryLimit(ini_get('memory_limit')),
+                    'limit' => $this->parseMemoryLimit(ini_get('memory_limit')),
                 ],
             ],
             'database' => [
@@ -269,7 +269,7 @@ class HealthController extends Controller
             ],
             'cache' => [
                 'driver' => config('cache.default'),
-                'status' => \$this->checkCache()['status'],
+                'status' => $this->checkCache()['status'],
             ],
             'application' => [
                 'environment' => app()->environment(),
@@ -278,6 +278,6 @@ class HealthController extends Controller
             ],
         ];
 
-        return response()->json(\$metrics);
+        return response()->json($metrics);
     }
 }

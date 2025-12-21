@@ -4,13 +4,13 @@
         <div class="d-flex justify-content-center">
             <div class="verification-code-wrapper">
                 <div class="verification-area">
-                    <h5 class="border-bottom pb-3 text-center">@lang('Verify Mobile Number')</h5>
+                    <h5 class="border-bottom pb-3 text-center">@lang('user.verify_mobile_number')</h5>
                     <form class="submit-form" action="{{ route('user.verify.mobile') }}" method="POST">
                         @csrf
-                        <p class="verification-text">@lang('A 6 digit verification code sent to your mobile number') : +{{ showMobileNumber(auth()->user()->mobileNumber) }}</p>
+                        <p class="verification-text">@lang('user.6_digit_verification_code') : +{{ showMobileNumber(auth()->user()->mobileNumber) }}</p>
                         @include($activeTemplate . 'partials.verification_code')
                         <div class="mb-3">
-                            <button class="btn btn--base w-100" type="submit">@lang('Submit')</button>
+                            <button class="btn btn--base w-100" type="submit">@lang('user.submit')</button>
                         </div>
                         <div class="form-group">
                             <p>

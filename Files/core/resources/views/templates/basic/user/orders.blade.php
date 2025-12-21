@@ -6,11 +6,11 @@
                 <table class="custom--table table">
                     <thead>
                         <tr>
-                            <th>@lang('Product')</th>
-                            <th>@lang('Quantity')</th>
-                            <th>@lang('Price')</th>
-                            <th>@lang('Total Price')</th>
-                            <th>@lang('Status')</th>
+                            <th>@lang('user.product')</th>
+                            <th>@lang('user.quantity')</th>
+                            <th>@lang('user.price')</th>
+                            <th>@lang('user.total_price')</th>
+                            <th>@lang('user.status')</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -31,7 +31,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td class="text-center" colspan="100%">@lang('No order found')</td>
+                                <td class="text-center" colspan="100%">@lang('user.no_order_found')</td>
                             </tr>
                         @endforelse
                     </tbody>

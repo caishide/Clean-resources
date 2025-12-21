@@ -7,26 +7,26 @@
             <div class="card-body">
                 <div class="text-center">
                     <div class="alert block-none alert-danger p-2" role="alert">
-                        <strong>@lang('Balance Transfer Charge') {{ getAmount(gs('bal_trans_fixed_charge')) }} {{ __(gs('cur_text')) }} @lang('Fixed and')
+                        <strong>@lang('user.balance_transfer_charge') {{ getAmount(gs('bal_trans_fixed_charge')) }} {{ __(gs('cur_text')) }} @lang('user.fixed_and')
                             {{ getAmount(gs('bal_trans_per_charge')) }}
-                            % @lang('of your total amount to transfer balance.')</strong> <br/>
+                            % @lang('user.transfer_balance_description')</strong> <br/>
                         <p id="after-balance" class="d-block"></p>
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="form-label form--label">@lang('Username / Email To Send Amount') </label>
-                    <input class="form-control form--control" id="username" name="username" type="text" placeholder="@lang('username / email')" required
+                    <label class="form-label form--label">@lang('user.username_email_to_send') </label>
+                    <input class="form-control form--control" id="username" name="username" type="text" placeholder="@lang('user.username_email')" required
                         autocomplete="off">
                     <span id="position-test"></span>
                 </div>
                 <div class="form-group">
-                    <label class="form-label form--label" for="InputMail">@lang('Transfer Amount')</label>
+                    <label class="form-label form--label" for="InputMail">@lang('user.transfer_amount')</label>
                     <input class="form-control form--control" type="number" step="any" id="amount" name="amount"
                         onkeyup="this.value = this.value.replace (/^\.|[^\d\.]/g, '')" autocomplete="off"
-                        placeholder="@lang('Amount') {{ __(gs('cur_text')) }}" required>
+                        placeholder="@lang('user.amount') {{ __(gs('cur_text')) }}" required>
                     <span id="balance-message"></span>
                 </div>
-                <button class="btn btn--base w-100" type="submit">@lang('Transfer Balance')</button>
+                <button class="btn btn--base w-100" type="submit">@lang('user.transfer_balance')</button>
             </div>
 
         </form>
@@ -49,9 +49,9 @@
                         },
                         success: function(data) {
                             if (data.success) {
-                                $('#position-test').html('<div class="text--success mt-1">@lang('User found')</div>');
+                                $('#position-test').html('<div class="text--success mt-1">@lang('user.user_found')</div>');
                             } else {
-                                $('#position-test').html('<div class="text--danger mt-2">@lang('User not found')</div>');
+                                $('#position-test').html('<div class="text--danger mt-2">@lang('user.user_not_found')</div>');
                             }
                         }
                     });

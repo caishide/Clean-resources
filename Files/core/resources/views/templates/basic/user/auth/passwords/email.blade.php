@@ -6,19 +6,19 @@
                 <div class="card custom--card">
                     <div class="card-body">
                         <div class="mb-4">
-                            <p>@lang('To recover your account please provide your email or username to find your account.')</p>
+                            <p>@lang('user.recover_account_description')</p>
                         </div>
                         <form class="verify-gcaptcha" method="POST" action="{{ route('user.password.email') }}">
                             @csrf
                             <div class="form--group">
-                                <label class="form--label">@lang('Email or Username')</label>
+                                <label class="form--label">@lang('user.email_or_username')</label>
                                 <input class="form-control form--control" name="value" type="text" value="{{ old('value') }}" required autofocus="off">
                             </div>
                             @php
                                 $custom = true;
                             @endphp
                             <x-captcha :custom="$custom" />
-                            <button class="btn btn--base w-100" type="submit">@lang('Submit')</button>
+                            <button class="btn btn--base w-100" type="submit">@lang('user.submit')</button>
                         </form>
                     </div>
                 </div>

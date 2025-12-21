@@ -5,13 +5,13 @@
             <div class="d-flex justify-content-center">
                 <div class="verification-code-wrapper">
                     <div class="verification-area">
-                        <h5 class="border-bottom pb-3 text-center">@lang('2FA Verification')</h5>
+                        <h5 class="border-bottom pb-3 text-center">@lang('user.2fa_verification')</h5>
                         <form class="submit-form mt-4" action="{{ route('user.2fa.verify') }}" method="POST">
                             @csrf
 
                             @include($activeTemplate . 'partials.verification_code')
 
-                            <button class="btn btn--base w-100" type="submit">@lang('Submit')</button>
+                            <button class="btn btn--base w-100" type="submit">@lang('user.submit')</button>
                         </form>
                     </div>
                 </div>

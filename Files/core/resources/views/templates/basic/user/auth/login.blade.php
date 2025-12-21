@@ -14,13 +14,13 @@
                         @csrf
 
                         <div class="form--group">
-                            <label class="form--label">@lang('Username')</label>
+                            <label class="form--label">@lang('user.username')</label>
                             <input class="form-control form--control" name="username" type="text" value="{{ old('username') }}"
-                                placeholder="@lang('Enter Username')" required>
+                                placeholder="@lang('user.enter_username')" required>
                         </div>
                         <div class="form--group">
-                            <label class="form--label">@lang('Password')</label>
-                            <input class="form-control form--control" id="password" name="password" type="password" placeholder="@lang('Enter Password')"
+                            <label class="form--label">@lang('user.password')</label>
+                            <input class="form-control form--control" id="password" name="password" type="password" placeholder="@lang('user.enter_password')"
                                 required>
                         </div>
 
@@ -32,15 +32,15 @@
                         <div class="form--group custom--checkbox">
                             <input class="form--control" id="remember" name="remember" type="checkbox" {{ old('remember') ? 'checked' : '' }}>
                             <label class="form--label" for="remember">
-                                @lang('Remember Me')
+                                @lang('user.remember_me')
                             </label>
                         </div>
                         <div class="form--group button-wrapper">
-                            <button class="account--btn" type="submit">@lang('Sign In')</button>
-                            <a class="custom--btn" href="{{ route('user.register') }}"><span>@lang('Create Account')</span></a>
+                            <button class="account--btn" type="submit">@lang('user.sign_in')</button>
+                            <a class="custom--btn" href="{{ route('user.register') }}"><span>@lang('user.create_account')</span></a>
                         </div>
                     </form>
-                    <p class="text--dark">@lang('Forgot your login credentials') ? <a class="text--base ms-2" href="{{ route('user.password.request') }}">@lang('Reset Password')</a>
+                    <p class="text--dark">@lang('user.forgot_credentials') ? <a class="text--base ms-2" href="{{ route('user.password.request') }}">@lang('user.reset_password')</a>
                     </p>
                 </div>
             </div>

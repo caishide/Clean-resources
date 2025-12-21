@@ -210,7 +210,7 @@ class ManageUsersController extends Controller
      */
     public function detail(int $id): View
     {
-        $user      = User::findOrFail($id);
+        $user      = User::with('userExtra')->findOrFail($id);
         $pageTitle = 'User Detail - ' . $user->username;
 
         $totalDeposit     = Deposit::where('user_id', $user->id)->successful()->sum('amount');

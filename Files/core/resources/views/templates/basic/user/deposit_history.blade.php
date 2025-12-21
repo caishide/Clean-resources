@@ -4,7 +4,7 @@
         <form>
             <div class="d-flex justify-content-end">
                 <div class="input-group">
-                    <input class="form-control form--control" name="search" type="search" value="{{ request()->search }}" placeholder="@lang('Search by transactions')">
+                    <input class="form-control form--control" name="search" type="search" value="{{ request()->search }}" placeholder="@lang('user.search_by_transactions')">
                     <button class="input-group-text">
                         <i class="las la-search"></i>
                     </button>
@@ -12,7 +12,7 @@
             </div>
         </form>
         <a class="btn btn--base" href="{{ route('user.deposit.index') }}">
-            <i class="las la-plus"></i> @lang('Deposit Now')
+            <i class="las la-plus"></i> @lang('user.deposit_now')
         </a>
     </div>
     <div class="card custom--card  p-0">
@@ -25,7 +25,7 @@
                             <th>@lang('Initiated')</th>
                             <th>@lang('Amount')</th>
                             <th>@lang('Conversion')</th>
-                            <th>@lang('Status')</th>
+                            <th>@lang('user.status')</th>
                             <th>@lang('Details')</th>
                         </tr>
                     </thead>

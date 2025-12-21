@@ -9,11 +9,11 @@
                         <table class="custom--table table">
                             <thead>
                                 <tr>
-                                    <th>@lang('Sl')</th>
-                                    <th>@lang('BV')</th>
-                                    <th>@lang('Position')</th>
-                                    <th>@lang('Detail')</th>
-                                    <th>@lang('Date')</th>
+                                    <th>@lang('user.sl')</th>
+                                    <th>@lang('user.bv')</th>
+                                    <th>@lang('user.position')</th>
+                                    <th>@lang('user.detail')</th>
+                                    <th>@lang('user.date')</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -26,13 +26,13 @@
                                         </td>
                                         <td>
                                             @if ($data->position == 1)
-                                                <span class="badge badge--success">@lang('Left')</span>
+                                                <span class="badge badge--success">@lang('user.left')</span>
                                             @else
-                                                <span class="badge badge--primary">@lang('Right')</span>
+                                                <span class="badge badge--primary">@lang('user.right')</span>
                                             @endif
                                         </td>
                                         <td>{{ $data->details }}</td>
-                                        <td>{{ $data->created_at != '' ? date('d/m/y  g:i A', strtotime($data->created_at)) : __('Not Assign') }}</td>
+                                        <td>{{ $data->created_at != '' ? date('d/m/y  g:i A', strtotime($data->created_at)) : __('user.not_assign') }}</td>
                                     </tr>
 
                                 @empty

@@ -28,7 +28,14 @@
                     <li><a href="{{ route('products') }}">@lang('Product')</a></li>
 
                     @foreach ($pages as $k => $data)
-                        <li><a href="{{ route('pages', [$data->slug]) }}">{{ $data->name }}</a></li>
+                        @php
+                            $pageSlug = strtolower($data->slug ?? '');
+                            $pageName = strtolower($data->name ?? '');
+                            $isProductPage = in_array($pageSlug, ['products', 'product'], true) || in_array($pageName, ['products', 'product'], true);
+                            $pageLabel = $pageName === 'faq' ? __('FAQ') : __($data->name ?? '');
+                        @endphp
+                        @continue($isProductPage)
+                        <li><a href="{{ route('pages', [$data->slug]) }}">{{ $pageLabel }}</a></li>
                     @endforeach
                     <li><a href="{{ route('blog') }}">@lang('Blog')</a></li>
                     <li><a href="{{ route('contact') }}">@lang('Contact')</a></li>

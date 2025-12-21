@@ -7,12 +7,12 @@
             <table class="table custom--table">
                 <thead>
                 <tr>
-                    <th>@lang('Paid left')</th>
-                    <th>@lang('Paid right')</th>
-                    <th>@lang('Free left')</th>
-                    <th>@lang('Free right')</th>
-                    <th>@lang('Bv left')</th>
-                    <th>@lang('Bv right')</th>
+                    <th>@lang('user.paid_left')</th>
+                    <th>@lang('user.paid_right')</th>
+                    <th>@lang('user.free_left')</th>
+                    <th>@lang('user.free_right')</th>
+                    <th>@lang('user.bv_left')</th>
+                    <th>@lang('user.bv_right')</th>
                 </tr>
                 </thead>
                 <tbody>

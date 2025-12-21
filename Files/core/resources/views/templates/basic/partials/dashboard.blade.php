@@ -11,7 +11,7 @@
                             <img  id="output" src="{{ getImage('assets/images/user/profile/'. auth()->user()->image, '350x300',true)}}" alt="dashboard">
                         </div>
                         <div class="user-content">
-                            <span>@lang('Welcome')</span>
+                            <span>@lang('user.welcome')</span>
                             <h5 class="name">{{ auth()->user()->fullname }}</h5>
                         </div>
                     </div>
@@ -21,83 +21,83 @@
                             <div class="d-flex align-items-center">
                                 <i class="las la-user-shield fs-4 me-2"></i>
                                 <div>
-                                    <strong>@lang('Admin Impersonation Active')</strong>
+                                    <strong>@lang('user.admin_impersonation_active')</strong>
                                     <p class="mb-0 small">
-                                        @lang('You are being impersonated by an administrator. All actions are being logged.')
+                                        @lang('user.you_are_being_impersonated')
                                     </p>
                                 </div>
                             </div>
                             <a href="{{ route('admin.users.exit.impersonation') }}" class="btn btn--danger btn-sm mt-2 w-100">
-                                        <i class="las la-sign-out-alt"></i> @lang('Exit Impersonation')
+                                        <i class="las la-sign-out-alt"></i> @lang('user.exit_impersonation')
                                     </a>
                         </div>
                     @endif
                     <ul class="user-dashboard-tab">
                         <li>
-                            <a class="{{menuActive('user.home')}}" href="{{route('user.home')}}">@lang('Dasboard')</a>
+                            <a class="{{menuActive('user.home')}}" href="{{route('user.home')}}">@lang('user.dashboard')</a>
                         </li>
                         <li>
-                            <a class="{{menuActive('user.plan.index')}}" href="{{route('user.plan.index')}}"> @lang('Plan') </a>
+                            <a class="{{menuActive('user.plan.index')}}" href="{{route('user.plan.index')}}"> @lang('user.plan') </a>
                         </li>
                         <li>
-                            <a class="{{menuActive('user.bv.log')}}" href="{{ route('user.bv.log') }}">@lang('BV Log') </a>
+                            <a class="{{menuActive('user.bv.log')}}" href="{{ route('user.bv.log') }}">@lang('user.bv_log') </a>
                         </li>
                         <li>
-                            <a class="{{menuActive('user.my.ref')}}" href="{{ route('user.my.ref') }}"> @lang('My Referrals')</a>
+                            <a class="{{menuActive('user.my.ref')}}" href="{{ route('user.my.ref') }}"> @lang('user.my_referrals')</a>
                         </li>
                         <li>
-                            <a class="{{menuActive('user.my.tree')}}" href="{{ route('user.my.tree') }}">@lang('My Tree')</a>
+                            <a class="{{menuActive('user.my.tree')}}" href="{{ route('user.my.tree') }}">@lang('user.my_tree')</a>
                         </li>
                         <li>
                             <a href="{{ route('user.binary.summery') }}" class="{{menuActive('user.binary.summery')}}">
-                                @lang('Binary Summery')
+                                @lang('user.binary_summary')
                             </a>
                         </li>
                         <li>
                             <a href="{{ route('user.orders') }}" class="{{menuActive('user.orders')}}">
-                                @lang('Orders')
+                                @lang('user.orders')
                             </a>
                         </li>
                         <li>
                             <a href="{{ route('user.balance.transfer') }}" class="{{menuActive('user.balance.transfer')}}">
-                                @lang('Balance Transfer')
+                                @lang('user.balance_transfer')
                             </a>
                         </li>
                         <li>
                             <a href="{{ route('user.deposit.history') }}" class="{{menuActive(['user.deposit*'])}}">
-                                @lang('Deposit History')
+                                @lang('user.deposit_history')
                             </a>
                         </li>
                         <li>
                             <a href="{{ route('user.withdraw.history') }}" class="{{menuActive('user.withdraw*')}}">
-                                @lang('Withdraw History')
+                                @lang('user.withdraw_history')
                             </a>
                         </li>
                        
                         <li>
                             <a href="{{ route('user.transactions') }}" class="{{menuActive('user.transactions')}}">
-                                @lang('Transactions History')
+                                @lang('user.transactions_history')
                             </a>
                         </li>
                         <li>
                             <a href="{{ route('ticket.index') }}" class="{{menuActive('ticket*')}}">
-                                @lang('Support Ticket')
+                                @lang('user.support_ticket')
                             </a>
                         </li>
                         
                         <li>
-                            <a class="{{menuActive('user.profile.setting')}}" href="{{route('user.profile.setting')}}" class="">@lang('Profile Setting')</a>
+                            <a class="{{menuActive('user.profile.setting')}}" href="{{route('user.profile.setting')}}" class="">@lang('user.profile_setting')</a>
                         </li>
                         <li>
                             <a href="{{ route('user.twofactor') }}" class="{{menuActive('user.twofactor')}}">
-                                @lang('2FA Security')
+                                @lang('user.two_fa_security')
                             </a>
                         </li>
                         <li>
-                            <a class="{{menuActive('user.change.password')}}" href="{{route('user.change.password')}}" class="">@lang('Change Password')</a>
+                            <a class="{{menuActive('user.change.password')}}" href="{{route('user.change.password')}}" class="">@lang('user.change_password')</a>
                         </li>
                         <li>
-                            <a href="{{ route('user.logout') }}" class="">@lang('Sign Out')</a>
+                            <a href="{{ route('user.logout') }}" class="">@lang('user.sign_out')</a>
                         </li>
                     </ul>
                 </div>

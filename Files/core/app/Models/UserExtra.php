@@ -19,5 +19,9 @@ class UserExtra extends Model
         'bv_left',
         'bv_right',
         'points',
+        'paid_left',
+        'paid_right',
+        'free_left',
+        'free_right',
     ];
 }

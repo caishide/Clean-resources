@@ -4,15 +4,15 @@
     <div class="d-flex justify-content-center">
         <div class="verification-code-wrapper">
             <div class="verification-area">
-                <h5 class="pb-3 text-center border-bottom">@lang('Verify Email Address')</h5>
+                <h5 class="pb-3 text-center border-bottom">@lang('user.verify_email_address')</h5>
                 <form action="{{route('user.verify.email')}}" method="POST" class="submit-form">
                     @csrf
-                    <p class="verification-text">@lang('A 6 digit verification code sent to your email address'):  {{ showEmailAddress(auth()->user()->email) }}</p>
+                    <p class="verification-text">@lang('user.6_digit_verification_code_email'):  {{ showEmailAddress(auth()->user()->email) }}</p>
 
                     @include($activeTemplate.'partials.verification_code')
 
                     <div class="mb-3">
-                        <button type="submit" class="btn btn--base w-100">@lang('Submit')</button>
+                        <button type="submit" class="btn btn--base w-100">@lang('user.submit')</button>
                     </div>
 
                     <div class="mb-3">

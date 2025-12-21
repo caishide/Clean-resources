@@ -102,12 +102,12 @@ class SiteController extends Controller
             'message' => 'required',
         ]);
 
-        $request->session()->regenerateToken();
-
         if (!verifyCaptcha()) {
             $notify[] = ['error', 'Invalid captcha provided'];
             return back()->withNotify($notify);
         }
+
+        $request->session()->regenerateToken();
 
         $random = getNumber();
 

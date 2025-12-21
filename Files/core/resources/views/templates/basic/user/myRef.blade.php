@@ -5,10 +5,10 @@
         <div class="col-lg-12 mb-4">
             <div class="card custom--card p-0">
                 <div class="card-header bg--primary-gradient p-3">
-                    <h4 class="card-title font-weight-normal text-white">@lang('Referrer Link')</h4>
+                    <h4 class="card-title font-weight-normal text-white">@lang('user.referrer_link')</h4>
                 </div>
                 <div class="card-body mb-3 p-4">
-                    <h4 class="card-title font-weight-normal">@lang('Join left')</h4>
+                    <h4 class="card-title font-weight-normal">@lang('user.join_left')</h4>
                     <form id="copyBoard" class="mb-4">
                         <div class="row align-items-center">
                             <div class="col-md-10 my-1">
@@ -17,12 +17,12 @@
                             </div>
                             <div class="col-md-2 my-1">
                                 <button class="cmn--btn btn-block active" id="copybtn" type="button" onclick="myFunction('ref')"> <span><i
-                                            class="fa fa-copy"></i> @lang('Copy')</span></button>
+                                            class="fa fa-copy"></i> @lang('user.copy')</span></button>
                             </div>
                         </div>
                     </form>
 
-                    <h4 class="card-title font-weight-normal">@lang('Join right')</h4>
+                    <h4 class="card-title font-weight-normal">@lang('user.join_right')</h4>
                     <form id="copyBoard2">
                         <div class="row align-items-center">
                             <div class="col-md-10 my-1">
@@ -31,7 +31,7 @@
                             </div>
                             <div class="col-md-2 my-1">
                                 <button class="cmn--btn btn-block btn-sm active" id="copybtn2" type="button" onclick="myFunction('ref2')"> <span><i
-                                            class="fa fa-copy"></i> @lang('Copy')</span></button>
+                                            class="fa fa-copy"></i> @lang('user.copy')</span></button>
                             </div>
                         </div>
                     </form>
@@ -45,10 +45,10 @@
                         <table class="custom--table table">
                             <thead>
                                 <tr>
-                                    <th>@lang('Username')</th>
-                                    <th>@lang('Name')</th>
-                                    <th>@lang('Email')</th>
-                                    <th>@lang('Join Date')</th>
+                                    <th>@lang('user.username')</th>
+                                    <th>@lang('user.name')</th>
+                                    <th>@lang('user.email')</th>
+                                    <th>@lang('user.join_date')</th>
                                 </tr>
                             </thead>
                             <tbody>

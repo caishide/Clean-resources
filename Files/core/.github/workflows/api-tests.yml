@@ -1,0 +1,429 @@
+name: API Tests
+
+on:
+  push:
+    branches: [ master, develop ]
+  pull_request:
+    branches: [ master ]
+  schedule:
+    # Run API tests every day at 2 AM UTC
+    - cron: '0 2 * * *'
+
+env:
+  PHP_VERSION: '8.2'
+  NODE_VERSION: '18'
+  MYSQL_VERSION: '8.0'
+
+jobs:
+  # ==========================================================================
+  # API Integration Tests with Newman
+  # ==========================================================================
+  api-tests:
+    name: API Integration Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: false
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: laravel_test
+        ports:
+          - 3306/tcp
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379/tcp
+        options: --health-cmd="redis-cli ping" --health-interval=10s --health-timeout=5s --health-retries=3
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: mbstring, xml, ctype, json, iconv, intl, pdo_mysql, dom, filter, gd, fileinfo, bcmath, redis
+          tools: composer:v2
+
+      - name: Cache Composer packages
+        uses: actions/cache@v3
+        with:
+          path: vendor
+          key: ${{ runner.os }}-php-${{ hashFiles('**/composer.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-php-
+
+      - name: Install dependencies
+        run: composer install --no-progress --no-scripts --prefer-dist
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install Newman
+        run: npm install -g newman
+
+      - name: Generate application key
+        run: php artisan key:generate
+
+      - name: Create .env.testing
+        run: |
+          cat >> .env.testing << EOF
+          APP_ENV=testing
+          APP_KEY=base64:$(php -r 'echo base64_encode(random_bytes(32));')
+          DB_CONNECTION=mysql
+          DB_HOST=127.0.0.1
+          DB_PORT=3306
+          DB_DATABASE=laravel_test
+          DB_USERNAME=root
+          DB_PASSWORD=root
+          REDIS_HOST=127.0.0.1
+          REDIS_PORT=6379
+          CACHE_DRIVER=redis
+          SESSION_DRIVER=redis
+          QUEUE_CONNECTION=redis
+          APP_DEBUG=false
+          LOG_CHANNEL=testing
+          EOF
+
+      - name: Run database migrations
+        run: php artisan migrate:fresh --env=testing --force
+
+      - name: Seed database with test data
+        run: |
+          php artisan db:seed --env=testing --force --class=TestDataSeeder || \
+          php artisan tinker --env=testing --execute="
+            \$user = new App\Models\User();
+            \$user->username = 'user_79lgvw';
+            \$user->email = 'user@example.com';
+            \$user->password = Hash::make('test123');
+            \$user->status = 'active';
+            \$user->save();
+
+            \$admin = new App\Models\Admin();
+            \$admin->email = '58462822@qq.com';
+            \$admin->password = Hash::make('admin123');
+            \$admin->save();
+          " || echo "Seed completed or skipped"
+
+      - name: Build application
+        run: php artisan config:cache --env=testing
+
+      - name: Start Laravel server
+        run: |
+          php artisan serve --env=testing --host=0.0.0.0 --port=8000 &
+          sleep 5
+        env:
+          APP_ENV: testing
+
+      - name: Wait for server to be ready
+        run: |
+          timeout 60 bash -c 'until curl -f http://localhost:8000/api/health; do sleep 2; done'
+          echo "Server is ready!"
+
+      - name: Run Newman API Tests
+        run: |
+          cd tests/postman
+          newman run BinaryEcom20.postman_collection.json \
+            --environment ci.json \
+            --reporters cli,json \
+            --reporter-json-export newman-report.json \
+            --reporter-cli-no-assertions \
+            --timeout-request 30000
+        continue-on-error: false
+
+      - name: Upload Newman test report
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: newman-test-report
+          path: tests/postman/newman-report.json
+
+      - name: Comment PR with test results
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            if (fs.existsSync('tests/postman/newman-report.json')) {
+              const report = JSON.parse(fs.readFileSync('tests/postman/newman-report.json', 'utf8'));
+              const totalTests = report.run.stats.assertions.total;
+              const passedTests = report.run.stats.assertions.passed;
+              const failedTests = report.run.stats.assertions.failed;
+
+              const comment = `## API Test Results ✅
+
+              | Metric | Count |
+              |--------|-------|
+              | Total Tests | ${totalTests} |
+              | Passed | ${passedTests} ✅ |
+              | Failed | ${failedTests} ❌ |
+              | Runtime | ${report.run.timing.completed}ms |
+
+              ${failedTests > 0 ? '⚠️ Some tests failed. Please check the workflow logs for details.' : '🎉 All API tests passed!'}
+              `;
+
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: comment
+              });
+            }
+
+      - name: Fail workflow on test failures
+        if: failure()
+        run: |
+          echo "API tests failed! Check the Newman report for details."
+          if [ -f tests/postman/newman-report.json ]; then
+            cat tests/postman/newman-report.json
+          fi
+          exit 1
+
+  # ==========================================================================
+  # Performance Tests
+  # ==========================================================================
+  performance-tests:
+    name: API Performance Tests
+    runs-on: ubuntu-latest
+    needs: api-tests
+    if: github.ref == 'refs/heads/master' || github.event_name == 'schedule'
+    timeout-minutes: 20
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: false
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: laravel_test
+        ports:
+          - 3306/tcp
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379/tcp
+        options: --health-cmd="redis-cli ping" --health-interval=10s --health-timeout=5s --health-retries=3
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: mbstring, xml, ctype, json, iconv, intl, pdo_mysql, dom, filter, gd, fileinfo, bcmath, redis
+
+      - name: Install dependencies
+        run: composer install --no-progress --no-scripts --prefer-dist
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install Newman and artillery
+        run: |
+          npm install -g newman
+          npm install -g artillery
+
+      - name: Generate application key
+        run: php artisan key:generate
+
+      - name: Create .env.testing
+        run: |
+          cat >> .env.testing << EOF
+          APP_ENV=testing
+          APP_KEY=base64:$(php -r 'echo base64_encode(random_bytes(32));')
+          DB_CONNECTION=mysql
+          DB_HOST=127.0.0.1
+          DB_PORT=3306
+          DB_DATABASE=laravel_test
+          DB_USERNAME=root
+          DB_PASSWORD=root
+          REDIS_HOST=127.0.0.1
+          REDIS_PORT=6379
+          CACHE_DRIVER=redis
+          SESSION_DRIVER=redis
+          QUEUE_CONNECTION=redis
+          APP_DEBUG=false
+          LOG_CHANNEL=testing
+          EOF
+
+      - name: Run database migrations
+        run: php artisan migrate:fresh --env=testing --force
+
+      - name: Start Laravel server
+        run: |
+          php artisan serve --env=testing --host=0.0.0.0 --port=8000 &
+          sleep 5
+
+      - name: Wait for server
+        run: timeout 60 bash -c 'until curl -f http://localhost:8000/api/health; do sleep 2; done'
+
+      - name: Run performance tests
+        run: |
+          # Create artillery config for load testing
+          cat > artillery-config.yml << EOF
+          config:
+            target: 'http://localhost:8000'
+            phases:
+              - duration: 60
+                arrivalRate: 5
+            defaults:
+              headers:
+                Accept: 'application/json'
+          scenarios:
+            - name: 'API Health Check'
+              requests:
+                - get:
+                    url: '/api/health'
+            - name: 'User Login Flow'
+              requests:
+                - post:
+                    url: '/api/auth/login'
+                    json:
+                      username: 'user_79lgvw'
+                      password: 'test123'
+                - get:
+                    url: '/api/auth/me'
+                    headers:
+                      Authorization: 'Bearer {{ token }}'
+          EOF
+
+          artillery run artillery-config.yml
+
+      - name: Upload performance report
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: performance-report
+          path: artillery-report.html
+
+  # ==========================================================================
+  # Security Tests
+  # ==========================================================================
+  security-tests:
+    name: API Security Tests
+    runs-on: ubuntu-latest
+    needs: api-tests
+    if: github.ref == 'refs/heads/master' || github.event_name == 'schedule'
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install security testing tools
+        run: |
+          npm install -g newman
+          npm install -g @OWASP/damn-vulnerable-web-application
+
+      - name: Start Laravel server (in background)
+        run: |
+          php -S localhost:8000 -t public &
+          sleep 5
+
+      - name: Run security-focused Newman tests
+        run: |
+          # Create security test collection
+          cat > security-tests.postman_collection.json << 'EOF'
+          {
+            "info": {
+              "name": "API Security Tests",
+              "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+            },
+            "item": [
+              {
+                "name": "SQL Injection Test",
+                "request": {
+                  "method": "POST",
+                  "url": "{{base_url}}/api/auth/login",
+                  "header": [{"key": "Content-Type", "value": "application/json"}],
+                  "body": {
+                    "mode": "raw",
+                    "raw": "{\"username\": \"admin' OR '1'='1\", \"password\": \"anything\"}"
+                  }
+                },
+                "event": [{
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('Should reject SQL injection', () => {",
+                      "  pm.response.to.have.status(401);",
+                      "});"
+                    ]
+                  }
+                }]
+              },
+              {
+                "name": "XSS Test",
+                "request": {
+                  "method": "POST",
+                  "url": "{{base_url}}/api/auth/login",
+                  "header": [{"key": "Content-Type", "value": "application/json"}],
+                  "body": {
+                    "mode": "raw",
+                    "raw": "{\"username\": \"<script>alert('xss')</script>\", \"password\": \"test\"}"
+                  }
+                },
+                "event": [{
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('Should reject XSS attempt', () => {",
+                      "  pm.response.to.have.status(401);",
+                      "});"
+                    ]
+                  }
+                }]
+              },
+              {
+                "name": "Unauthorized Admin Access",
+                "request": {
+                  "method": "GET",
+                  "url": "{{base_url}}/api/admin/settlements",
+                  "header": [{"key": "Accept", "value": "application/json"}]
+                },
+                "event": [{
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('Should return 401 without auth', () => {",
+                      "  pm.response.to.have.status(401);",
+                      "});"
+                    ]
+                  }
+                }]
+              }
+            ],
+            "variable": [
+              {"key": "base_url", "value": "http://localhost:8000"}
+            ]
+          }
+          EOF
+
+          newman run security-tests.postman_collection.json --reporters cli,json
+
+      - name: Upload security test results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: security-test-results
+          path: security-tests-report.json

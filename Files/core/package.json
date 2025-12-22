@@ -3,7 +3,11 @@
     "type": "module",
     "scripts": {
         "dev": "vite",
-        "build": "vite build"
+        "build": "vite build",
+        "test:api": "bash run-api-tests.sh",
+        "test:api:ci": "bash run-api-tests.sh --env ci --reporter json",
+        "test:api:local": "bash run-api-tests.sh --env local",
+        "test:api:report": "bash run-api-tests.sh --reporter all"
     },
     "devDependencies": {
         "axios": "^1.6.4",

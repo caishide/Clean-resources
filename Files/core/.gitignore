@@ -23,3 +23,9 @@ yarn-error.log
 /.vscode
 /storage/framework/sessions/*
 !/storage/framework/sessions/.gitignore
+
+# API Test Reports
+newman-report.json
+newman-report.html
+artillery-report.html
+security-tests-report.json

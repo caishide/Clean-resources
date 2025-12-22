@@ -6,6 +6,8 @@
     {"key": "api_url", "value": "http://localhost/api", "enabled": true},
     {"key": "test_username", "value": "user_79lgvw", "enabled": true},
     {"key": "test_password", "value": "test123", "enabled": true},
+    {"key": "admin_username", "value": "58462822@qq.com", "enabled": true},
+    {"key": "admin_password", "value": "admin123", "enabled": true},
     {"key": "user_token", "value": "", "enabled": true},
     {"key": "admin_token", "value": "", "enabled": true}
   ]

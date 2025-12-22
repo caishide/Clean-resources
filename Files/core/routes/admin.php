@@ -407,6 +407,21 @@ Route::middleware('admin')->group(function () {
         Route::get('points', 'points')->name('points');
     });
 
+    // 七宝进阶管理
+    Route::controller('SevenTreasuresController')->prefix('seven-treasures')->name('seven-treasures.')->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::get('stats', 'getStats')->name('stats');
+        Route::post('batch-promotion', 'batchPromotion')->name('batch-promotion');
+        Route::post('check-promotion', 'checkUserPromotion')->name('check-promotion');
+        Route::post('promote-user', 'promoteUser')->name('promote-user');
+        Route::get('user/{id}/details', 'getUserRankDetails')->name('user.details');
+        Route::get('search-users', 'searchUsers')->name('search-users');
+        Route::get('rank-config', 'getRankConfig')->name('rank-config');
+        Route::get('rank-distribution', 'getRankDistribution')->name('rank-distribution');
+        Route::get('eligible-users', 'getEligibleUsers')->name('eligible-users');
+        Route::post('clear-cache', 'clearUserCache')->name('clear-cache');
+    });
+
     //Order
     Route::controller('OrderController')->name('order.')->prefix('order')->group(function () {
         Route::get('/{user_id?}', 'index')->name('index');

@@ -116,6 +116,16 @@ Route::middleware('auth')->name('user.')->group(function () {
                 Route::get('tree/{user}', 'otherTree')->name('other.tree');
                 Route::get('tree/search', 'otherTree')->name('other.tree.search');
             });
+
+            // 七宝进阶
+            Route::controller('SevenTreasuresController')->prefix('seven-treasures')->name('seven.treasures.')->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::get('my-rank', 'getMyRankInfo')->name('my.rank');
+                Route::post('check-promotion', 'checkPromotionEligibility')->name('check.promotion');
+                Route::get('all-ranks', 'getAllRanks')->name('all.ranks');
+                Route::get('downlines', 'getMyDownlines')->name('downlines');
+                Route::get('estimated-rank', 'getEstimatedRank')->name('estimated.rank');
+            });
         });
 
         // Payment

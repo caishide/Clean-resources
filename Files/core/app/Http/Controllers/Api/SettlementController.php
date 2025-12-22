@@ -122,6 +122,7 @@ class SettlementController extends Controller
     }
 
     // ========== 管理员接口 ==========
+    // 注意: 访问控制由 api.admin 中间件处理
 
     /**
      * 获取周结算列表
@@ -129,10 +130,6 @@ class SettlementController extends Controller
      */
     public function getSettlements(Request $request): JsonResponse
     {
-        if (!auth('admin')->check()) {
-            abort(403);
-        }
-
         $settlements = $this->settlementService->getSettlementHistory(
             $request->input('page', 1),
             $request->input('per_page', 20)
@@ -150,10 +147,6 @@ class SettlementController extends Controller
      */
     public function dryRunSettlement(Request $request): JsonResponse
     {
-        if (!auth('admin')->check()) {
-            abort(403);
-        }
-
         $week = $request->input('week', now()->subWeek()->format('o-\WW'));
 
         $result = $this->settlementService->executeWeeklySettlement($week, true);
@@ -171,10 +164,6 @@ class SettlementController extends Controller
      */
     public function executeSettlement(Request $request): JsonResponse
     {
-        if (!auth('admin')->check()) {
-            abort(403);
-        }
-
         $week = $request->input('week', now()->subWeek()->format('o-\WW'));
 
         // 先执行预演
@@ -205,10 +194,6 @@ class SettlementController extends Controller
      */
     public function getKFactorDetails(Request $request, string $week): JsonResponse
     {
-        if (!auth('admin')->check()) {
-            abort(403);
-        }
-
         $details = $this->settlementService->getKFactorDetails($week);
 
         return response()->json([
@@ -223,10 +208,6 @@ class SettlementController extends Controller
      */
     public function releasePendingBonuses(Request $request): JsonResponse
     {
-        if (!auth('admin')->check()) {
-            abort(403);
-        }
-
         $bonusIds = $request->input('bonus_ids', []);
 
         if (empty($bonusIds)) {

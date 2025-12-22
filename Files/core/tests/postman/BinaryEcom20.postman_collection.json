@@ -265,6 +265,37 @@
       "name": "👑 Admin",
       "item": [
         {
+          "name": "POST /api/auth/admin/login",
+          "request": {
+            "method": "POST",
+            "url": "{{api_url}}/auth/admin/login",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "Accept", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"username\": \"{{admin_username}}\", \"password\": \"{{admin_password}}\"}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has admin token', () => {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json.status).to.equal('success');",
+                  "  pm.expect(json.data.type).to.equal('admin');",
+                  "  pm.environment.set('admin_token', json.data.token);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "GET /api/admin/settlements (No Auth)",
           "request": {
             "method": "GET",
@@ -285,7 +316,7 @@
           ]
         },
         {
-          "name": "GET /api/admin/settlements (User Token - Admin Access)",
+          "name": "GET /api/admin/settlements (User Token - Should 403)",
           "request": {
             "method": "GET",
             "url": "{{api_url}}/admin/settlements",
@@ -299,9 +330,29 @@
               "listen": "test",
               "script": {
                 "exec": [
-                  "// Note: Admin middleware currently allows all authenticated users via Sanctum",
-                  "// This test documents current behavior - security review recommended",
-                  "pm.test('Returns 200 with valid token (admin check pending)', () => pm.response.to.have.status(200));"
+                  "pm.test('Returns 403 with user token', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /api/admin/settlements (Admin Token)",
+          "request": {
+            "method": "GET",
+            "url": "{{api_url}}/admin/settlements",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{admin_token}}"},
+              {"key": "Accept", "value": "application/json"}
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Returns 200 with admin token', () => pm.response.to.have.status(200));",
+                  "pm.test('Has data field', () => pm.expect(pm.response.json()).to.have.property('data'));"
                 ]
               }
             }

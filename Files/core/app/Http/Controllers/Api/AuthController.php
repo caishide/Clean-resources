@@ -3,11 +3,11 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Admin;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\ValidationException;
 
 /**
  * API认证控制器
@@ -49,10 +49,47 @@ class AuthController extends Controller
             'status' => 'success',
             'data' => [
                 'token' => $token,
+                'type' => 'user',
                 'user' => [
                     'id' => $user->id,
                     'username' => $user->username,
                     'email' => $user->email,
+                ]
+            ]
+        ]);
+    }
+
+    /**
+     * 管理员登录获取Token
+     */
+    public function adminLogin(Request $request): JsonResponse
+    {
+        $request->validate([
+            'username' => 'required|string',
+            'password' => 'required|string',
+        ]);
+
+        $admin = Admin::where('username', $request->username)->first();
+
+        if (!$admin || !Hash::check($request->password, $admin->password)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Invalid credentials'
+            ], 401);
+        }
+
+        // 创建Token
+        $token = $admin->createToken('admin-api-token')->plainTextToken;
+
+        return response()->json([
+            'status' => 'success',
+            'data' => [
+                'token' => $token,
+                'type' => 'admin',
+                'admin' => [
+                    'id' => $admin->id,
+                    'username' => $admin->username,
+                    'email' => $admin->email,
                 ]
             ]
         ]);
@@ -76,12 +113,16 @@ class AuthController extends Controller
      */
     public function me(Request $request): JsonResponse
     {
+        $user = $request->user();
+        $isAdmin = $user instanceof Admin;
+
         return response()->json([
             'status' => 'success',
             'data' => [
-                'id' => $request->user()->id,
-                'username' => $request->user()->username,
-                'email' => $request->user()->email,
+                'id' => $user->id,
+                'username' => $user->username,
+                'email' => $user->email,
+                'type' => $isAdmin ? 'admin' : 'user',
             ]
         ]);
     }

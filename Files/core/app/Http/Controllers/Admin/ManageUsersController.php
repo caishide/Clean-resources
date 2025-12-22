@@ -194,10 +194,15 @@ class ManageUsersController extends Controller
      */
     protected function userData(?string $scope = null): LengthAwarePaginator
     {
+        // 优化：使用with()预加载关系，避免N+1查询
         if ($scope) {
-            $users = User::$scope();
+            $users = User::$scope()->with(['userExtra', 'transactions' => function($query) {
+                $query->latest()->limit(10);
+            }]);
         } else {
-            $users = User::query();
+            $users = User::with(['userExtra', 'transactions' => function($query) {
+                $query->latest()->limit(10);
+            }]);
         }
         return $users->searchable(['username', 'email'])->orderBy('id', 'desc')->paginate(getPaginate());
     }
@@ -210,15 +215,36 @@ class ManageUsersController extends Controller
      */
     public function detail(int $id): View
     {
-        $user      = User::with('userExtra')->findOrFail($id);
+        // 优化：预加载所有相关关系，避免N+1查询
+        $user = User::with([
+            'userExtra',
+            'transactions' => function($query) {
+                $query->latest()->limit(50);
+            },
+            'deposits' => function($query) {
+                $query->latest()->limit(20);
+            },
+            'withdrawals' => function($query) {
+                $query->latest()->limit(20);
+            },
+            'orders' => function($query) {
+                $query->latest()->limit(20);
+            },
+            'bvLogs' => function($query) {
+                $query->latest()->limit(20);
+            }
+        ])->findOrFail($id);
+
         $pageTitle = 'User Detail - ' . $user->username;
 
-        $totalDeposit     = Deposit::where('user_id', $user->id)->successful()->sum('amount');
-        $totalWithdrawals = Withdrawal::where('user_id', $user->id)->approved()->sum('amount');
-        $totalTransaction = Transaction::where('user_id', $user->id)->count();
-        $countries        = json_decode(file_get_contents(resource_path('views/partials/country.json')));
-        $totalBvCut       = BvLog::where('user_id', $user->id)->where('trx_type', self::BV_TRX_TYPE_MINUS)->sum('amount');
-        $totalOrder       = Order::where('user_id', $user->id)->count();
+        // 使用预加载的数据计算统计，避免额外查询
+        $totalDeposit = $user->deposits->where('status', 1)->sum('amount');
+        $totalWithdrawals = $user->withdrawals->where('status', 2)->sum('amount');
+        $totalTransaction = $user->transactions->count();
+        $countries = json_decode(file_get_contents(resource_path('views/partials/country.json')));
+        $totalBvCut = $user->bvLogs->where('trx_type', self::BV_TRX_TYPE_MINUS)->sum('amount');
+        $totalOrder = $user->orders->count();
+
         return view('admin.users.detail', compact('pageTitle', 'user', 'totalDeposit', 'totalWithdrawals', 'totalTransaction', 'countries', 'totalBvCut', 'totalOrder'));
     }
 

@@ -1,0 +1,12 @@
+{
+  "id": "binaryecom20-local",
+  "name": "BinaryEcom20 Local",
+  "values": [
+    {"key": "base_url", "value": "http://localhost", "enabled": true},
+    {"key": "api_url", "value": "http://localhost/api", "enabled": true},
+    {"key": "test_username", "value": "user_79lgvw", "enabled": true},
+    {"key": "test_password", "value": "test123", "enabled": true},
+    {"key": "user_token", "value": "", "enabled": true},
+    {"key": "admin_token", "value": "", "enabled": true}
+  ]
+}

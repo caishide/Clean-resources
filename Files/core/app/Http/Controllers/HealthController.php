@@ -23,12 +23,50 @@ use Illuminate\Support\Facades\Redis;
 class HealthController extends Controller
 {
     /**
-     * Check overall system health
+     * Check overall system health (快速版本)
      *
      * @param Request $request
      * @return JsonResponse
      */
     public function check(Request $request): JsonResponse
+    {
+        // 快速健康检查 - 仅检查关键项，缓存30秒
+        $cacheKey = 'bc20_health:quick';
+
+        $response = Cache::remember($cacheKey, 30, function () {
+            $dbOk = $this->quickDatabaseCheck();
+
+            return [
+                'status' => $dbOk ? 'ok' : 'error',
+                'timestamp' => now()->toISOString(),
+                'environment' => app()->environment(),
+                'checks' => [
+                    'database' => $dbOk ? 'ok' : 'error',
+                    'app' => 'ok',
+                ],
+            ];
+        });
+
+        return response()->json($response, $response['status'] === 'ok' ? 200 : 503);
+    }
+
+    /**
+     * 快速数据库检查 - 仅验证连接
+     */
+    private function quickDatabaseCheck(): bool
+    {
+        try {
+            DB::connection()->getPdo();
+            return true;
+        } catch (\Exception $e) {
+            return false;
+        }
+    }
+
+    /**
+     * 详细健康检查 (完整版本)
+     */
+    public function detailed(Request $request): JsonResponse
     {
         $checks = [
             'database' => $this->checkDatabase(),
@@ -48,12 +86,17 @@ class HealthController extends Controller
             'checks' => $checks,
         ];
 
-        // Log health check results
-        Log::channel('health')->info('Health check performed', $response);
-
         $statusCode = $overallStatus === 'ok' ? 200 : 503;
 
         return response()->json($response, $statusCode);
+    }
+
+    /**
+     * 极简ping检查
+     */
+    public function ping(): JsonResponse
+    {
+        return response()->json(['status' => 'ok', 'time' => now()->toISOString()]);
     }
 
     /**

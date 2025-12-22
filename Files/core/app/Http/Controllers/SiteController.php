@@ -16,6 +16,7 @@ use App\Models\SupportMessage;
 use App\Models\AdminNotification;
 use Illuminate\Support\Facades\Cookie;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
 
 
 class SiteController extends Controller
@@ -63,10 +64,21 @@ class SiteController extends Controller
             ]);
         }
 
-        $pageTitle   = 'Home';
-        $sections    = Page::where('tempname', activeTemplate())->where('slug', '/')->first();
-        $seoContents = @$sections->seo_content;
-        $seoImage    = @$seoContents->image ? getImage(getFilePath('seo') . '/' . @$seoContents->image, getFileSize('seo')) : null;
+        $pageTitle = 'Home';
+
+        // 缓存首页数据 - 5分钟TTL
+        $cacheKey = 'bc20_page:home:' . activeTemplate();
+        $pageData = Cache::remember($cacheKey, 300, function () {
+            $sections = Page::where('tempname', activeTemplate())->where('slug', '/')->first();
+            return [
+                'sections' => $sections,
+                'seoContents' => @$sections->seo_content,
+            ];
+        });
+
+        $sections = $pageData['sections'];
+        $seoContents = $pageData['seoContents'];
+        $seoImage = @$seoContents->image ? getImage(getFilePath('seo') . '/' . @$seoContents->image, getFileSize('seo')) : null;
 
         return view('Template::home', compact('pageTitle', 'sections', 'seoContents', 'seoImage'));
     }

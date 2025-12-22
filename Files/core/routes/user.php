@@ -3,16 +3,19 @@
 use Illuminate\Support\Facades\Route;
 
 Route::namespace('User\Auth')->name('user.')->middleware('guest')->group(function () {
-    Route::controller('LoginController')->middleware(['throttle:5,1'])->group(function () {
+    Route::controller('LoginController')->group(function () {
         Route::get('/login', 'showLoginForm')->name('login');
-        Route::post('/login', 'login');
+        Route::post('/login', 'login')->middleware(['throttle:5,1']);
         Route::get('logout', 'logout')->middleware('auth')->withoutMiddleware('guest')->name('logout');
     });
 
-    Route::controller('RegisterController')->middleware(['guest', 'throttle:3,1'])->group(function () {
+    Route::controller('RegisterController')->middleware(['guest'])->group(function () {
         Route::get('register', 'showRegistrationForm')->name('register');
-        Route::post('register', 'register');
-        Route::post('check-user', 'checkUser')->name('checkUser')->withoutMiddleware('guest');
+        Route::post('register', 'register')->middleware(['throttle:3,1']);
+        Route::post('check-user', 'checkUser')
+            ->name('checkUser')
+            ->withoutMiddleware('guest')
+            ->middleware(['throttle:5,1']);
     });
 
     Route::controller('ForgotPasswordController')->prefix('password')->middleware(['throttle:3,1'])->name('password.')->group(function () {

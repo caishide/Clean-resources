@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Models\Order;
 use App\Observers\OrderObserver;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 
 /**
@@ -35,8 +36,10 @@ class SettlementServiceProvider extends ServiceProvider
         // 注册订单观察者
         Order::observe(OrderObserver::class);
 
-        // 加载结算API路由
-        $this->loadRoutesFrom(base_path('routes/api_settlement.php'));
+        // 加载结算API路由 (注意：需要应用api前缀和中间件)
+        Route::middleware('api')
+            ->prefix('api')
+            ->group(base_path('routes/api_settlement.php'));
 
         // 注册Artisan命令
         if ($this->app->runningInConsole()) {

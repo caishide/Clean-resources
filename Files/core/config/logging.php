@@ -18,7 +18,7 @@ return [
     |
     */
 
-    'default' => env('LOG_CHANNEL', 'stack'),
+    'default' => 'stderr',
 
     /*
     |--------------------------------------------------------------------------
@@ -59,18 +59,25 @@ return [
         ],
 
         'single' => [
-            'driver' => 'single',
-            'path' => storage_path('logs/laravel.log'),
+            'driver' => 'monolog',
             'level' => env('LOG_LEVEL', 'debug'),
-            'replace_placeholders' => true,
+            'handler' => StreamHandler::class,
+            'formatter' => env('LOG_STDERR_FORMATTER'),
+            'with' => [
+                'stream' => '/tmp/laravel.log',
+            ],
+            'processors' => [PsrLogMessageProcessor::class],
         ],
 
         'daily' => [
-            'driver' => 'daily',
-            'path' => storage_path('logs/laravel.log'),
+            'driver' => 'monolog',
             'level' => env('LOG_LEVEL', 'debug'),
-            'days' => env('LOG_DAILY_DAYS', 14),
-            'replace_placeholders' => true,
+            'handler' => StreamHandler::class,
+            'formatter' => env('LOG_STDERR_FORMATTER'),
+            'with' => [
+                'stream' => '/tmp/laravel.log',
+            ],
+            'processors' => [PsrLogMessageProcessor::class],
         ],
 
         'slack' => [
@@ -128,21 +135,46 @@ return [
         ],
 
         'security' => [
-            'driver' => 'daily',
-            'path' => storage_path('logs/security.log'),
+            'driver' => 'monolog',
             'level' => 'info',
-            'days' => env('LOG_SECURITY_DAYS', 30),
-            'permission' => 0666,
-            'replace_placeholders' => true,
+            'handler' => StreamHandler::class,
+            'formatter' => env('LOG_STDERR_FORMATTER'),
+            'with' => [
+                'stream' => defined('PHPUNIT_TEST') && PHPUNIT_TEST === true ? 'php://stderr' : storage_path('logs/security.log'),
+            ],
+            'processors' => [PsrLogMessageProcessor::class],
         ],
 
         'gateway' => [
-            'driver' => 'daily',
-            'path' => storage_path('logs/gateway.log'),
+            'driver' => 'monolog',
             'level' => 'info',
-            'days' => env('LOG_GATEWAY_DAYS', 30),
-            'permission' => 0666,
-            'replace_placeholders' => true,
+            'handler' => StreamHandler::class,
+            'formatter' => env('LOG_STDERR_FORMATTER'),
+            'with' => [
+                'stream' => defined('PHPUNIT_TEST') && PHPUNIT_TEST === true ? 'php://stderr' : storage_path('logs/gateway.log'),
+            ],
+            'processors' => [PsrLogMessageProcessor::class],
+        ],
+
+        'performance' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/performance.log'),
+            'level' => 'info',
+            'days' => 14,
+        ],
+
+        'audit' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/audit.log'),
+            'level' => 'info',
+            'days' => 30,
+        ],
+
+        'slow_queries' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/slow-queries.log'),
+            'level' => 'warning',
+            'days' => 7,
         ],
 
     ],

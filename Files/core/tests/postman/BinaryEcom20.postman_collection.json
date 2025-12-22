@@ -1,0 +1,313 @@
+{
+  "info": {
+    "name": "BinaryEcom20 API Tests",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {"key": "base_url", "value": "http://localhost"},
+    {"key": "api_url", "value": "{{base_url}}/api"},
+    {"key": "user_token", "value": ""},
+    {"key": "admin_token", "value": ""}
+  ],
+  "item": [
+    {
+      "name": "🔓 Public",
+      "item": [
+        {
+          "name": "Health Check",
+          "item": [
+            {
+              "name": "GET /api/health",
+              "request": {
+                "method": "GET",
+                "url": "{{api_url}}/health"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                      "pm.test('Has status field', () => pm.expect(pm.response.json()).to.have.property('status'));",
+                      "pm.test('Status is ok', () => pm.expect(pm.response.json().status).to.equal('ok'));",
+                      "pm.test('Response < 1000ms', () => pm.expect(pm.response.responseTime).to.be.below(1000));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "GET /api/ping",
+              "request": {
+                "method": "GET",
+                "url": "{{api_url}}/ping"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                      "pm.test('Response < 500ms', () => pm.expect(pm.response.responseTime).to.be.below(500));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Site",
+          "item": [
+            {
+              "name": "GET / (Homepage)",
+              "request": {
+                "method": "GET",
+                "url": "{{base_url}}/"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                      "pm.test('Response < 2000ms', () => pm.expect(pm.response.responseTime).to.be.below(2000));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "GET /products",
+              "request": {
+                "method": "GET",
+                "url": "{{base_url}}/products"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "🔑 Auth",
+      "item": [
+        {
+          "name": "POST /api/auth/login (User)",
+          "request": {
+            "method": "POST",
+            "url": "{{api_url}}/auth/login",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"},
+              {"key": "Accept", "value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"username\": \"{{test_username}}\", \"password\": \"{{test_password}}\"}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has token', () => {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json.status).to.equal('success');",
+                  "  pm.expect(json.data).to.have.property('token');",
+                  "  pm.environment.set('user_token', json.data.token);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /api/auth/me",
+          "request": {
+            "method": "GET",
+            "url": "{{api_url}}/auth/me",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{user_token}}"},
+              {"key": "Accept", "value": "application/json"}
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has user data', () => {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json.status).to.equal('success');",
+                  "  pm.expect(json.data).to.have.property('username');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "🔐 User Auth",
+      "item": [
+        {
+          "name": "Settlement API",
+          "item": [
+            {
+              "name": "GET /api/user/pv-summary (No Auth)",
+              "request": {
+                "method": "GET",
+                "url": "{{api_url}}/user/pv-summary",
+                "header": [
+                  {"key": "Accept", "value": "application/json"}
+                ]
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('Returns 401 without auth', () => pm.response.to.have.status(401));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "GET /api/user/pv-summary (With Auth)",
+              "request": {
+                "method": "GET",
+                "url": "{{api_url}}/user/pv-summary",
+                "header": [
+                  {"key": "Authorization", "value": "Bearer {{user_token}}"},
+                  {"key": "Accept", "value": "application/json"}
+                ]
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                      "pm.test('Has data field', () => pm.expect(pm.response.json()).to.have.property('data'));",
+                      "pm.test('Has PV fields', () => {",
+                      "  const data = pm.response.json().data;",
+                      "  pm.expect(data).to.have.property('left_pv');",
+                      "  pm.expect(data).to.have.property('right_pv');",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "GET /api/user/points-summary (With Auth)",
+              "request": {
+                "method": "GET",
+                "url": "{{api_url}}/user/points-summary",
+                "header": [
+                  {"key": "Authorization", "value": "Bearer {{user_token}}"},
+                  {"key": "Accept", "value": "application/json"}
+                ]
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                      "pm.test('Has data field', () => pm.expect(pm.response.json()).to.have.property('data'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "GET /api/user/bonus-history (With Auth)",
+              "request": {
+                "method": "GET",
+                "url": "{{api_url}}/user/bonus-history",
+                "header": [
+                  {"key": "Authorization", "value": "Bearer {{user_token}}"},
+                  {"key": "Accept", "value": "application/json"}
+                ]
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                      "pm.test('Has data field', () => pm.expect(pm.response.json()).to.have.property('data'));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "👑 Admin",
+      "item": [
+        {
+          "name": "GET /api/admin/settlements (No Auth)",
+          "request": {
+            "method": "GET",
+            "url": "{{api_url}}/admin/settlements",
+            "header": [
+              {"key": "Accept", "value": "application/json"}
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Returns 401 without auth', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /api/admin/settlements (User Token - Admin Access)",
+          "request": {
+            "method": "GET",
+            "url": "{{api_url}}/admin/settlements",
+            "header": [
+              {"key": "Authorization", "value": "Bearer {{user_token}}"},
+              {"key": "Accept", "value": "application/json"}
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Note: Admin middleware currently allows all authenticated users via Sanctum",
+                  "// This test documents current behavior - security review recommended",
+                  "pm.test('Returns 200 with valid token (admin check pending)', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

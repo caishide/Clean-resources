@@ -7,7 +7,7 @@ Route::namespace('Auth')->group(function () {
     Route::middleware('admin.guest')->group(function () {
         Route::controller('LoginController')->group(function () {
             Route::get('/', 'showLoginForm')->name('login');
-            Route::post('/', 'login')->name('login');
+            Route::post('/', 'login')->name('login.submit');
             Route::get('logout', 'logout')->middleware('admin')->withoutMiddleware('admin.guest')->name('logout');
         });
 
@@ -72,7 +72,7 @@ Route::middleware('admin')->group(function () {
         Route::post('update/{id}', 'update')->name('update');
         Route::post('add-sub-balance/{id}', 'addSubBalance')->name('add.sub.balance');
         Route::get('send-notification/{id}', 'showNotificationSingleForm')->name('notification.single');
-        Route::post('send-notification/{id}', 'sendNotificationSingle')->name('notification.single');
+        Route::post('send-notification/{id}', 'sendNotificationSingle')->name('notification.single.send');
         Route::get('login/{id}', 'login')->name('impersonate.login');
         Route::get('impersonate-verify/{id}', 'show2FAForm')->name('impersonate.verify');
         Route::post('impersonate-verify/{id}', 'verify2FA')->name('impersonate.verify.post');
@@ -216,7 +216,7 @@ Route::middleware('admin')->group(function () {
 
         // Logo-Icon
         Route::get('setting/logo-icon', 'logoIcon')->name('setting.logo.icon');
-        Route::post('setting/logo-icon', 'logoIconUpdate')->name('setting.logo.icon');
+        Route::post('setting/logo-icon', 'logoIconUpdate')->name('setting.logo.icon.update');
 
         //Custom CSS
         Route::get('custom-css', 'customCss')->name('setting.custom.css');

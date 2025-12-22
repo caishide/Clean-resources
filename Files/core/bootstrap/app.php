@@ -6,6 +6,8 @@ use App\Http\Middleware\CheckStatus;
 use App\Http\Middleware\Demo;
 use App\Http\Middleware\KycMiddleware;
 use App\Http\Middleware\MaintenanceMode;
+use App\Http\Middleware\PerformanceMiddleware;
+use App\Http\Middleware\RequestTracingMiddleware;
 use App\Http\Middleware\RedirectIfAdmin;
 use App\Http\Middleware\RedirectIfAuthenticated;
 use App\Http\Middleware\RedirectIfNotAdmin;
@@ -21,6 +23,8 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware) {
         // 先定义所有中间件组
         $middleware->group('web',[
+            \App\Http\Middleware\RequestTracingMiddleware::class,
+            \App\Http\Middleware\PerformanceMiddleware::class,
             \Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse::class,
             \Illuminate\Session\Middleware\StartSession::class,
             \Illuminate\View\Middleware\ShareErrorsFromSession::class,
@@ -56,6 +60,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
             'admin' => RedirectIfNotAdmin::class,
             'admin.guest' => RedirectIfAdmin::class,
+            'api.admin' => \App\Http\Middleware\EnsureApiAdmin::class,
 
             'check.status' => CheckStatus::class,
             'demo' => Demo::class,
@@ -105,7 +110,7 @@ return Application::configure(basePath: dirname(__DIR__))
                         'remark' => 'unauthenticated',
                         'status' => 'error',
                         'message' => ['error' => $notify]
-                    ]);
+                    ], 401);
                 }
             }
 

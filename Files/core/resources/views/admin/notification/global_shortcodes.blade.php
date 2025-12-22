@@ -23,7 +23,10 @@
                         <td><span class="short-codes">@{{message}}</span></td>
                         <td>@lang('Message')</td>
                     </tr>
-                    @foreach(gs('global_shortcodes') as $shortCode => $codeDetails)
+                    @php
+                        $globalShortcodes = gs('global_shortcodes');
+                    @endphp
+                    @foreach(is_iterable($globalShortcodes) ? $globalShortcodes : [] as $shortCode => $codeDetails)
                     <tr>
                         <td><span class="short-codes">@{{@php echo $shortCode @endphp}}</span></td>
                         <td>{{ __($codeDetails) }}</td>

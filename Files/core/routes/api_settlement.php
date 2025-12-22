@@ -18,6 +18,7 @@ Route::get('ping', [HealthController::class, 'ping']);
 
 // 认证接口 (公开登录，其他需认证)
 Route::post('auth/login', [AuthController::class, 'login']);
+Route::post('auth/admin/login', [AuthController::class, 'adminLogin']);
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('auth/logout', [AuthController::class, 'logout']);
     Route::get('auth/me', [AuthController::class, 'me']);

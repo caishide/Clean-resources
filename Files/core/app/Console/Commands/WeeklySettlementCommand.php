@@ -58,7 +58,7 @@ class WeeklySettlementCommand extends Command
 
         try {
             // 执行结算
-            $result = $this->settlementService->executeWeeklySettlement($week, $dryRun);
+            $result = $this->settlementService->executeWeeklySettlement($week, $dryRun, $force);
 
             // 输出结果
             $this->outputResult($result);

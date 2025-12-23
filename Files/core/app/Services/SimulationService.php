@@ -38,6 +38,8 @@ class SimulationService
         $leftRatio = max(0, min(100, (int) ($options['left_ratio'] ?? 60)));
         $ordersPerWeek = (int) ($options['orders_per_week'] ?? 200);
         $persist = (bool) ($options['persist'] ?? false);
+        $settlementDryRun = (bool) ($options['settlement_dry_run'] ?? false);
+        $ignoreLock = (bool) ($options['ignore_lock'] ?? false);
         $unpaidPerWeek = max(0, (int) ($options['unpaid_new_per_week'] ?? 0));
         [$totalUsersTarget, $weeklyNew] = $this->resolveUserTargets($options, $weeks, $ordersPerWeek);
 
@@ -149,7 +151,7 @@ class SimulationService
                 $weekKey = $weekStart->format('o-\WW');
                 DB::table('weekly_settlement_user_summaries')->where('week_key', $weekKey)->delete();
                 DB::table('weekly_settlements')->where('week_key', $weekKey)->delete();
-                $settlementService->executeWeeklySettlement($weekKey, false);
+                $settlementService->executeWeeklySettlement($weekKey, $settlementDryRun, $ignoreLock);
 
                 // 汇总本周
                 $ws = WeeklySettlement::where('week_key', $weekKey)->first();
@@ -253,7 +255,7 @@ class SimulationService
             foreach ($quarterList as $quarterKey) {
                 DB::table('dividend_logs')->where('quarter_key', $quarterKey)->delete();
                 DB::table('quarterly_settlements')->where('quarter_key', $quarterKey)->delete();
-                $results['quarters'][] = $settlementService->executeQuarterlySettlement($quarterKey, false);
+                $results['quarters'][] = $settlementService->executeQuarterlySettlement($quarterKey, $settlementDryRun);
             }
             $results['quarter'] = $results['quarters'][count($results['quarters']) - 1] ?? null;
 

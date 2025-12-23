@@ -8,7 +8,6 @@ use App\Models\AdjustmentEntry;
 use App\Services\AdjustmentService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
-use App\Models\AuditLog;
 
 class AdjustmentBatchController extends Controller
 {
@@ -42,17 +41,8 @@ class AdjustmentBatchController extends Controller
             return back()->withNotify($notify);
         }
         try {
-            $service->finalizeAdjustmentBatch($id);
-            $batch->finalized_by = auth('admin')->id();
-            $batch->save();
+            $service->finalizeAdjustmentBatch($id, auth('admin')->id());
             Log::info('Adjustment batch finalized by admin', ['batch_id' => $id, 'admin_id' => auth('admin')->id()]);
-            AuditLog::create([
-                'admin_id' => auth('admin')->id(),
-                'action_type' => 'adjustment_finalize',
-                'entity_type' => 'adjustment_batch',
-                'entity_id' => $id,
-                'meta' => ['batch_key' => $batch->batch_key],
-            ]);
             $notify[] = ['success', __('admin.adjustment.batch_finalized')];
             return back()->withNotify($notify);
         } catch (\Exception $e) {

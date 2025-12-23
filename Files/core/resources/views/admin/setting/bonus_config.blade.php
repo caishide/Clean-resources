@@ -9,9 +9,42 @@
                 <small class="text-muted">输入小数，如 0.2 表示 20%</small>
             </div>
             <div class="card-body">
+                @if(($versions ?? collect())->isNotEmpty())
+                    <form method="get" class="mb-3">
+                        <div class="row g-2 align-items-end">
+                            <div class="col-md-8">
+                                <label class="form-label">选择版本</label>
+                                <select name="version_id" class="form-select">
+                                    @foreach($versions as $version)
+                                        <option value="{{ $version->id }}" @selected(($editingVersion?->id ?? null) === $version->id)>
+                                            {{ $version->version_code }} @if($version->is_active) (当前生效) @endif
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <button type="submit" class="btn btn-outline--primary w-100">载入版本</button>
+                            </div>
+                        </div>
+                    </form>
+                @else
+                    <div class="alert alert-info small mb-3">尚无版本记录，保存配置将创建首个版本。</div>
+                @endif
                 <form method="post" action="{{ route('admin.bonus-config.update') }}">
                     @csrf
+                    <input type="hidden" name="version_id" value="{{ $editingVersion?->id }}">
                     <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">版本号</label>
+                            <input type="text" name="version_code" value="{{ old('version_code', $editingVersion?->version_code ?? ($config['version'] ?? 'v10.1')) }}" class="form-control" maxlength="50">
+                            <small class="text-muted">建议格式：v10.1 / v10.1.1</small>
+                        </div>
+                        <div class="col-md-6 d-flex align-items-end">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" name="activate" id="activateVersion" value="1" @checked(old('activate'))>
+                                <label class="form-check-label" for="activateVersion">保存后设为生效版本</label>
+                            </div>
+                        </div>
                         <div class="col-md-4">
                             <label class="form-label">直推奖比例</label>
                             <input type="number" step="0.01" name="direct_rate" value="{{ old('direct_rate', $config['direct_rate'] ?? 0) }}" class="form-control" min="0" max="1" required>
@@ -96,11 +129,26 @@
         </div>
         <div class="card mt-3">
             <div class="card-header">
-                <h6 class="card-title mb-0">@lang('admin.description')</h6>
+                <h6 class="card-title mb-0">版本列表</h6>
             </div>
-            <div class="card-body small text-muted">
-                <p class="mb-2">@lang('admin.bonus.unfilled_fields_using_default')</p>
-                <p class="mb-0">@lang('admin.bonus.takes_effect_immediately')</p>
+            <div class="card-body small">
+                @if(($versions ?? collect())->isEmpty())
+                    <div class="text-muted">暂无版本记录</div>
+                @else
+                    <ul class="list-unstyled mb-0">
+                        @foreach($versions as $version)
+                            <li class="d-flex justify-content-between mb-2">
+                                <span>
+                                    {{ $version->version_code }}
+                                    @if($version->is_active)
+                                        <span class="badge badge--success ms-1">生效</span>
+                                    @endif
+                                </span>
+                                <span class="text-muted">{{ $version->created_at?->format('Y-m-d') }}</span>
+                            </li>
+                        @endforeach
+                    </ul>
+                @endif
             </div>
         </div>
     </div>

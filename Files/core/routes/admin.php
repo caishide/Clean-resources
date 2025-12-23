@@ -308,10 +308,17 @@ Route::middleware('admin')->group(function () {
         Route::get('info', 'systemInfo')->name('info');
         Route::get('server-info', 'systemServerInfo')->name('server.info');
         Route::get('optimize', 'optimize')->name('optimize');
-        Route::get('optimize-clear', 'optimizeClear')->name('optimize.clear');
+        Route::post('optimize-clear', 'optimizeClear')->name('optimize.clear');
         Route::get('system-update', 'systemUpdate')->name('update');
         Route::post('system-update', 'systemUpdateProcess')->name('update.process');
         Route::get('system-update/log', 'systemUpdateLog')->name('update.log');
+    });
+
+    // Performance Monitoring
+    Route::controller('PerformanceController')->name('performance.')->prefix('performance')->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::get('logs', 'logs')->name('logs');
+        Route::post('clear-logs', 'clearLogs')->name('clearLogs');
     });
 
 
@@ -405,6 +412,16 @@ Route::middleware('admin')->group(function () {
         Route::get('pending-bonuses', 'pendingBonuses')->name('pending-bonuses');
         Route::get('pv-ledger', 'pvLedger')->name('pv-ledger');
         Route::get('points', 'points')->name('points');
+    });
+
+    // Settlement management
+    Route::controller('SettlementManagementController')->prefix('settlements')->name('settlements.')->group(function () {
+        Route::get('weekly', 'weekly')->name('weekly');
+        Route::post('weekly/preview', 'weeklyPreview')->name('weekly.preview');
+        Route::post('weekly/execute', 'weeklyExecute')->name('weekly.execute');
+        Route::get('quarterly', 'quarterly')->name('quarterly');
+        Route::post('quarterly/preview', 'quarterlyPreview')->name('quarterly.preview');
+        Route::post('quarterly/execute', 'quarterlyExecute')->name('quarterly.execute');
     });
 
     // 七宝进阶管理

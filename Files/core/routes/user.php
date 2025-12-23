@@ -79,6 +79,14 @@ Route::middleware('auth')->name('user.')->group(function () {
                 //Orders
                 Route::get('orders', 'orders')->name('orders');
 
+                // Bonus & settlements
+                Route::get('bonus-center', 'bonusCenter')->name('bonus.center');
+                Route::get('weekly-settlements', 'weeklySettlements')->name('weekly.settlements');
+                Route::get('weekly-settlements/{week}', 'weeklySettlementShow')->name('weekly.settlements.show');
+                Route::get('quarterly-dividends', 'quarterlyDividends')->name('quarterly.dividends');
+                Route::get('points', 'pointsCenter')->name('points.center');
+                Route::post('points/check-in', 'dailyCheckIn')->name('points.checkin');
+
                 //purchase
                 Route::post('purchase', 'purchase')->name('purchase');
             });

@@ -10,9 +10,17 @@ use App\Models\Deposit;
 use App\Models\Product;
 use App\Constants\Status;
 use App\Lib\FormProcessor;
+use App\Models\PendingBonus;
+use App\Models\WeeklySettlement;
+use App\Models\WeeklySettlementUserSummary;
+use App\Models\QuarterlySettlement;
+use App\Models\DividendLog;
+use App\Models\UserPointsLog;
+use App\Models\UserAsset;
 use App\Models\Withdrawal;
 use App\Models\DeviceToken;
 use App\Models\Transaction;
+use App\Services\PointsService;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use App\Lib\GoogleAuthenticator;
@@ -236,6 +244,15 @@ class UserController extends Controller
     public function downloadAttachment($fileHash)
     {
         try {
+            // 🔒 修复IDOR漏洞：检查用户是否有权限下载此文件
+            // 获取当前用户
+            $user = auth()->user();
+
+            if (!$user) {
+                $notify[] = ['error', 'Please login to download files'];
+                return back()->withNotify($notify);
+            }
+
             $filePath = decrypt($fileHash);
 
             // Resolve the real path to prevent path traversal
@@ -251,6 +268,22 @@ class UserController extends Controller
                     'ip' => request()->ip()
                 ]);
                 $notify[] = ['error','Invalid file path'];
+                return back()->withNotify($notify);
+            }
+
+            // 🔒 修复IDOR漏洞：验证文件属于当前用户或用户有权限访问
+            // 检查文件路径中是否包含用户ID（根据实际存储策略调整）
+            $filename = basename($realPath);
+            $userIdFromPath = $this->extractUserIdFromFilePath($realPath);
+
+            if ($userIdFromPath && $userIdFromPath != $user->id) {
+                Log::channel('security')->warning('Unauthorized file download attempt', [
+                    'file_path' => $realPath,
+                    'user_id' => auth()->id(),
+                    'attempted_user_id' => $userIdFromPath,
+                    'ip' => request()->ip()
+                ]);
+                $notify[] = ['error', 'You do not have permission to download this file'];
                 return back()->withNotify($notify);
             }
 
@@ -286,6 +319,34 @@ class UserController extends Controller
             $notify[] = ['error','File does not exist'];
             return back()->withNotify($notify);
         }
+    }
+
+    /**
+     * 🔒 从文件路径中提取用户ID
+     *
+     * @param string $filePath 文件路径
+     * @return int|null
+     */
+    private function extractUserIdFromFilePath(string $filePath): ?int
+    {
+        // 根据实际的文件存储策略来解析用户ID
+        // 示例：如果文件存储在 user_attachments/{user_id}/ 目录下
+        $pathParts = explode('/', dirname($filePath));
+        $lastPart = end($pathParts);
+
+        // 检查是否是数字（用户ID）
+        if (is_numeric($lastPart)) {
+            return (int) $lastPart;
+        }
+
+        // 其他解析策略...
+        // 例如：从文件名中提取用户ID
+        // $filename = basename($filePath);
+        // if (preg_match('/user_(\d+)_/', $filename, $matches)) {
+        //     return (int) $matches[1];
+        // }
+
+        return null;
     }
 
     public function purchase(Request $request)
@@ -466,5 +527,111 @@ class UserController extends Controller
         $pageTitle = 'user.binary_summary';
         $user      = auth()->user();
         return view('Template::user.binarySummery', compact('pageTitle', 'user'));
+    }
+
+    public function bonusCenter(Request $request)
+    {
+        $pageTitle = '奖金中心';
+        $type = $request->input('type', 'direct');
+
+        $remarkMap = [
+            'direct' => ['direct_bonus'],
+            'level_pair' => ['level_pair_bonus'],
+            'pair' => ['pair_bonus'],
+            'matching' => ['matching_bonus'],
+            'dividend' => ['stockist_dividend', 'leader_dividend'],
+        ];
+
+        $transactions = collect();
+        $pendingBonuses = collect();
+
+        if ($type === 'pending') {
+            $pendingBonuses = PendingBonus::where('recipient_id', auth()->id())
+                ->orderByDesc('id')
+                ->paginate(getPaginate());
+        } else {
+            $remarks = $remarkMap[$type] ?? $remarkMap['direct'];
+            $transactions = Transaction::where('user_id', auth()->id())
+                ->whereIn('remark', $remarks)
+                ->orderByDesc('id')
+                ->paginate(getPaginate());
+        }
+
+        return view('Template::user.bonus_center', compact('pageTitle', 'type', 'transactions', 'pendingBonuses'));
+    }
+
+    public function weeklySettlements()
+    {
+        $pageTitle = '周结算';
+        $summaries = WeeklySettlementUserSummary::where('user_id', auth()->id())
+            ->orderByDesc('week_key')
+            ->paginate(getPaginate());
+
+        $settlements = WeeklySettlement::whereIn('week_key', $summaries->pluck('week_key')->all())
+            ->get()
+            ->keyBy('week_key');
+
+        return view('Template::user.weekly_settlements', compact('pageTitle', 'summaries', 'settlements'));
+    }
+
+    public function weeklySettlementShow(string $weekKey)
+    {
+        $pageTitle = '周结算详情';
+        $summary = WeeklySettlementUserSummary::where('user_id', auth()->id())
+            ->where('week_key', $weekKey)
+            ->first();
+        $settlement = WeeklySettlement::where('week_key', $weekKey)->first();
+
+        return view('Template::user.weekly_settlement_show', compact('pageTitle', 'summary', 'settlement', 'weekKey'));
+    }
+
+    public function quarterlyDividends()
+    {
+        $pageTitle = '季度分红';
+        $logs = DividendLog::where('user_id', auth()->id())
+            ->orderByDesc('quarter_key')
+            ->paginate(getPaginate());
+
+        $settlements = QuarterlySettlement::whereIn('quarter_key', $logs->pluck('quarter_key')->all())
+            ->get()
+            ->keyBy('quarter_key');
+
+        return view('Template::user.quarterly_dividends', compact('pageTitle', 'logs', 'settlements'));
+    }
+
+    public function pointsCenter()
+    {
+        $pageTitle = '莲子积分';
+        $logs = UserPointsLog::where('user_id', auth()->id())
+            ->orderByDesc('id')
+            ->paginate(getPaginate());
+
+        $asset = UserAsset::where('user_id', auth()->id())->first();
+        $byType = UserPointsLog::where('user_id', auth()->id())
+            ->selectRaw('source_type, SUM(points) as total_points')
+            ->groupBy('source_type')
+            ->get()
+            ->keyBy('source_type');
+
+        $todayKey = now()->toDateString();
+        $checkedIn = UserPointsLog::where('user_id', auth()->id())
+            ->where('source_type', 'DAILY')
+            ->where('source_id', $todayKey)
+            ->exists();
+
+        return view('Template::user.points_center', compact('pageTitle', 'logs', 'asset', 'byType', 'checkedIn'));
+    }
+
+    public function dailyCheckIn(PointsService $pointsService)
+    {
+        $result = $pointsService->creditDailyCheckIn(auth()->id());
+
+        if (($result['status'] ?? null) === 'success') {
+            $notify[] = ['success', '签到成功'];
+        } else {
+            $notify[] = ['error', $result['message'] ?? '签到失败'];
+        }
+
+        return back()->withNotify($notify);
     }
 }

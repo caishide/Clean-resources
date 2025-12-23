@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Models\User;
-use App\Models\Order;
 use App\Models\WeeklySettlement;
 use App\Models\WeeklySettlementUserSummary;
 use App\Models\QuarterlySettlement;
@@ -11,7 +10,6 @@ use App\Models\DividendLog;
 use App\Models\Transaction;
 use App\Models\PvLedger;
 use App\Models\PendingBonus;
-use App\Constants\Status;
 use App\Services\PVLedgerService;
 use App\Services\PointsService;
 use Illuminate\Support\Facades\DB;
@@ -43,11 +41,11 @@ class SettlementService
      * @param bool $dryRun 是否预演模式（不写入数据库）
      * @return array 结算结果
      */
-    public function executeWeeklySettlement(string $weekKey, bool $dryRun = false): array
+    public function executeWeeklySettlement(string $weekKey, bool $dryRun = false, bool $ignoreLock = false): array
     {
         // 分布式锁：防止同一week_key并发执行
         $lockKey = "weekly_settlement:{$weekKey}";
-        if (!$this->acquireLock($lockKey, 300)) { // 5分钟超时
+        if (!$ignoreLock && !$this->acquireLock($lockKey, 300)) { // 5分钟超时
             throw new \Exception("结算正在进行中，请稍后重试");
         }
 
@@ -322,7 +320,9 @@ class SettlementService
             ];
 
         } finally {
-            $this->releaseLock($lockKey);
+            if (!$ignoreLock) {
+                $this->releaseLock($lockKey);
+            }
         }
     }
 
@@ -369,9 +369,10 @@ class SettlementService
 
     private function calculateOrderPVForRange($start, $end): float
     {
-        return Order::whereBetween('updated_at', [$start, $end])
-            ->where('status', Status::ORDER_SHIPPED)
-            ->sum(DB::raw('COALESCE(total_price, price * quantity)'));
+        return PvLedger::where('source_type', 'order')
+            ->whereBetween('created_at', [$start, $end])
+            ->where('trx_type', '+')
+            ->sum('amount');
     }
 
     /**

@@ -9,7 +9,9 @@ use App\Models\PvLedger;
 use App\Models\Transaction;
 use App\Models\UserPointsLog;
 use App\Models\UserExtra;
+use App\Models\UserAsset;
 use App\Models\User;
+use App\Models\AuditLog;
 use Illuminate\Support\Facades\DB;
 
 class AdjustmentService
@@ -46,11 +48,11 @@ class AdjustmentService
      * 
      * @param int $batchId 批次ID
      */
-    public function finalizeAdjustmentBatch(int $batchId): void
+    public function finalizeAdjustmentBatch(int $batchId, ?int $adminId = null): void
     {
         $batch = AdjustmentBatch::findOrFail($batchId);
 
-        DB::transaction(function () use ($batch) {
+        DB::transaction(function () use ($batch, $adminId) {
             // 生成负向流水
             // 1. PV台账负向
             $this->reversePVEntries($batch);
@@ -62,7 +64,18 @@ class AdjustmentService
             $this->reversePointsEntries($batch);
 
             $batch->finalized_at = now();
+            if ($adminId) {
+                $batch->finalized_by = $adminId;
+            }
             $batch->save();
+
+            AuditLog::create([
+                'admin_id' => $adminId,
+                'action_type' => 'adjustment_finalize',
+                'entity_type' => 'adjustment_batch',
+                'entity_id' => $batch->id,
+                'meta' => ['batch_key' => $batch->batch_key],
+            ]);
         });
     }
 
@@ -139,6 +152,8 @@ class AdjustmentService
                 'remark' => $trx->remark . '_reversal',
                 'source_type' => 'adjustment',
                 'source_id' => $batch->batch_key,
+                'adjustment_batch_id' => $batch->id,
+                'reversal_of_id' => $trx->id,
                 'details' => json_encode(['adjustment_batch_id' => $batch->id, 'original_trx_id' => $trx->id]),
                 'post_balance' => $postBalance,
                 'charge' => 0,
@@ -194,6 +209,10 @@ class AdjustmentService
             $userExtra = UserExtra::firstOrCreate(['user_id' => $entry->user_id]);
             $userExtra->points = max(0, ($userExtra->points ?? 0) + $negativePoints);
             $userExtra->save();
+
+            $asset = UserAsset::firstOrCreate(['user_id' => $entry->user_id]);
+            $asset->points = max(0, ($asset->points ?? 0) + $negativePoints);
+            $asset->save();
         }
     }
 

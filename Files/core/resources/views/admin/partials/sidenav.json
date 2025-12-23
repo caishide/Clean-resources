@@ -121,6 +121,26 @@
         "route_name": "admin.bonus-config.index",
         "menu_active": "admin.bonus-config.*"
     },
+    "settlements": {
+        "keyword": [
+            "Settlement",
+            "Weekly",
+            "Quarterly"
+        ],
+        "title": "结算中心",
+        "icon": "las la-calculator",
+        "menu_active": "admin.settlements.*",
+        "submenu": [
+            {
+                "title": "周结算",
+                "route_name": "admin.settlements.weekly"
+            },
+            {
+                "title": "季度分红",
+                "route_name": "admin.settlements.quarterly"
+            }
+        ]
+    },
     "order": {
         "keyword": [
             "Order",

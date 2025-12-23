@@ -59,6 +59,31 @@
                             </a>
                         </li>
                         <li>
+                            <a href="{{ route('user.bonus.center') }}" class="{{menuActive('user.bonus.center')}}">
+                                奖金中心
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ route('user.weekly.settlements') }}" class="{{menuActive('user.weekly.settlements*')}}">
+                                周结算
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ route('user.quarterly.dividends') }}" class="{{menuActive('user.quarterly.dividends')}}">
+                                季度分红
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ route('user.seven.treasures.index') }}" class="{{menuActive('user.seven.treasures.*')}}">
+                                七宝进阶
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ route('user.points.center') }}" class="{{menuActive('user.points.center')}}">
+                                莲子积分
+                            </a>
+                        </li>
+                        <li>
                             <a href="{{ route('user.balance.transfer') }}" class="{{menuActive('user.balance.transfer')}}">
                                 @lang('user.balance_transfer')
                             </a>

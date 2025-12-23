@@ -13,6 +13,7 @@ class OrderShipmentService
         protected PVLedgerService $pvLedgerService,
         protected BonusService $bonusService,
         protected PointsService $pointsService,
+        protected AdjustmentService $adjustmentService,
     ) {}
 
     /**
@@ -89,5 +90,28 @@ class OrderShipmentService
         }
         return 0;
     }
-}
 
+    /**
+     * 发货后退款：创建调整批次并冲正PV/奖金/莲子。
+     */
+    public function refund(Order $order, string $reason = 'refund'): array
+    {
+        if ((int) $order->status !== Status::ORDER_SHIPPED) {
+            return ['status' => 'error', 'message' => 'Only shipped orders can be refunded'];
+        }
+
+        return DB::transaction(function () use ($order, $reason) {
+            $order->status = Status::ORDER_CANCELED;
+            $order->save();
+
+            $batch = $this->adjustmentService->createRefundAdjustment($order, $reason);
+
+            return [
+                'status' => 'success',
+                'batch_id' => $batch->id,
+                'batch_key' => $batch->batch_key,
+                'finalized_at' => $batch->finalized_at,
+            ];
+        });
+    }
+}

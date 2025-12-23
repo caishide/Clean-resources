@@ -41,7 +41,7 @@
                                             <div class="button--group">
                                                 <button class="btn btn-outline--primary btn-sm orderBtn"
                                                     data-action="{{ route('admin.order.status', $order->id) }}"
-                                                    @if ($order->status != 0) disabled @endif>@lang('Order Status')</button>
+                                                    @if ($order->status == 2) disabled @endif>@lang('Order Status')</button>
                                                 <button class="btn btn-sm btn-outline--success orderDetailsBtn" data-order='@json($order)'
                                                     data-date="{{ showDateTime($order->created_at) }}" data-status="{{ $order->statusOrderBadge }}"><i
                                                         class="las la-desktop"></i>@lang('Details')</button>
@@ -84,6 +84,10 @@
                                 <option value="1">@lang('Shipped')</option>
                                 <option value="2">@lang('Cancel')</option>
                             </select>
+                        </div>
+                        <div class="form-group mt-3">
+                            <label>退款原因（可选）</label>
+                            <input type="text" name="refund_reason" class="form-control" maxlength="255" placeholder="例如：用户申请退款">
                         </div>
                     </div>
                     <div class="modal-footer">

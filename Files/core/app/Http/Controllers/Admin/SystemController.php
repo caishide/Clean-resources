@@ -8,6 +8,7 @@ use App\Lib\CurlRequest;
 use App\Lib\FileManager;
 use App\Models\UpdateLog;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Laramin\Utility\VugiChugi;
 
@@ -26,9 +27,30 @@ class SystemController extends Controller
     }
 
     public function optimizeClear(){
-        Artisan::call('optimize:clear');
-        $notify[] = ['success','Cache cleared successfully'];
-        return back()->withNotify($notify);
+        try {
+            $startTime = microtime(true);
+            Artisan::call('optimize:clear');
+            $duration = round((microtime(true) - $startTime) * 1000, 2);
+
+            // 记录性能日志
+            if (config('logging.channels.performance')) {
+                Log::channel('performance')->info('Cache cleared', [
+                    'duration_ms' => $duration,
+                    'command' => 'optimize:clear',
+                    'user_id' => auth('admin')->id(),
+                ]);
+            }
+
+            $notify[] = ['success', 'Cache cleared successfully in ' . $duration . 'ms'];
+            return back()->withNotify($notify);
+        } catch (\Exception $e) {
+            Log::error('Cache clear failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            $notify[] = ['error', 'Failed to clear cache: ' . $e->getMessage()];
+            return back()->withNotify($notify);
+        }
     }
 
     public function systemServerInfo(){

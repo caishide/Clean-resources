@@ -172,8 +172,20 @@ class SiteController extends Controller
     public function blog()
     {
         $pageTitle = 'Blogs';
-        $blogs     = Frontend::where('data_keys', 'blog.element')->latest()->paginate(12);
-        $sections  = Page::where('tempname', activeTemplate())->where('slug', 'blog')->firstOrFail();
+        $cachePrefix = md5(activeTemplate() . '_' . app()->getLocale());
+
+        // 获取sections（缓存1小时）
+        $sections = Cache::remember('blog_sections_' . $cachePrefix, 3600, function () {
+            return Page::where('tempname', activeTemplate())->where('slug', 'blog')->firstOrFail();
+        });
+
+        // 获取博客列表（缓存15分钟，因为有分页）
+        $page = request()->get('page', 1);
+        $blogsCacheKey = 'blog_list_' . $cachePrefix . '_page_' . $page;
+        $blogs = Cache::remember($blogsCacheKey, 900, function () {
+            return Frontend::where('data_keys', 'blog.element')->latest()->paginate(12);
+        });
+
         return view('Template::blog', compact('pageTitle', 'blogs', 'sections'));
     }
 
@@ -190,7 +202,13 @@ class SiteController extends Controller
     public function faq()
     {
         $pageTitle = 'FAQs';
-        $sections  = Page::where('tempname', activeTemplate())->where('slug', 'faq')->firstOrFail();
+        $cacheKey = 'faq_page_' . md5(activeTemplate() . '_' . app()->getLocale());
+
+        // 尝试从缓存获取数据
+        $sections = Cache::remember($cacheKey, 3600, function () {
+            return Page::where('tempname', activeTemplate())->where('slug', 'faq')->firstOrFail();
+        });
+
         return view('Template::faq', compact('pageTitle', 'sections'));
     }
 
@@ -211,6 +229,25 @@ class SiteController extends Controller
 
     public function placeholderImage($size = null)
     {
+        $cacheKey = 'placeholder_' . md5($size);
+        $cacheDir = storage_path('app/public/placeholder-images');
+        $cacheFile = $cacheDir . '/' . $cacheKey . '.jpg';
+
+        // 创建缓存目录
+        if (!file_exists($cacheDir)) {
+            mkdir($cacheDir, 0755, true);
+        }
+
+        // 检查是否有缓存文件
+        if (file_exists($cacheFile) && (time() - filemtime($cacheFile)) < 86400) { // 24小时缓存
+            header('Content-Type: image/jpeg');
+            header('Cache-Control: public, max-age=86400');
+            header('Expires: ' . gmdate('D, d M Y H:i:s', time() + 86400) . ' GMT');
+            readfile($cacheFile);
+            return;
+        }
+
+        // 生成新图片
         $imgWidth  = explode('x', $size)[0];
         $imgHeight = explode('x', $size)[1];
         $text      = $imgWidth . '×' . $imgHeight;
@@ -233,7 +270,12 @@ class SiteController extends Controller
         $textX      = ($imgWidth - $textWidth) / 2;
         $textY      = ($imgHeight + $textHeight) / 2;
         header('Content-Type: image/jpeg');
+        header('Cache-Control: public, max-age=86400');
+        header('Expires: ' . gmdate('D, d M Y H:i:s', time() + 86400) . ' GMT');
         imagettftext($image, $fontSize, 0, $textX, $textY, $colorFill, $fontFile, $text);
+
+        // 保存到缓存文件
+        imagejpeg($image, $cacheFile, 90);
         imagejpeg($image);
         imagedestroy($image);
     }
@@ -251,13 +293,31 @@ class SiteController extends Controller
     public function products($categoryId = null)
     {
         $pageTitle = "Products";
-        $products  = Product::query();
-        if ($categoryId) {
-            $products = $products->where('category_id', $categoryId);
-        }
-        $products    = $products->active()->with('category')->hasCategory()->paginate(getPaginate(16));
-        $categories  = Category::active()->hasActiveProduct()->get()->take(5);
-        $sections    = Page::where('tempname', activeTemplate())->where('slug', 'products')->first();
+        $cachePrefix = md5(activeTemplate() . '_' . app()->getLocale());
+
+        // 获取产品列表（缓存15分钟）
+        $page = request()->get('page', 1);
+        $productsCacheKey = 'products_list_' . md5($cachePrefix . '_cat_' . $categoryId . '_page_' . $page);
+        $products = Cache::remember($productsCacheKey, 900, function () use ($categoryId) {
+            $products = Product::query();
+            if ($categoryId) {
+                $products = $products->where('category_id', $categoryId);
+            }
+            return $products->active()->with('category')->hasCategory()->paginate(getPaginate(16));
+        });
+
+        // 获取分类列表（缓存1小时）
+        $categoriesCacheKey = 'products_categories_' . $cachePrefix;
+        $categories = Cache::remember($categoriesCacheKey, 3600, function () {
+            return Category::active()->hasActiveProduct()->get()->take(5);
+        });
+
+        // 获取页面sections（缓存1小时）
+        $sectionsCacheKey = 'products_sections_' . $cachePrefix;
+        $sections = Cache::remember($sectionsCacheKey, 3600, function () {
+            return Page::where('tempname', activeTemplate())->where('slug', 'products')->first();
+        });
+
         $seoContents = @$sections->seo_content;
         $seoImage    = @$seoContents->image ? getImage(getFilePath('seo') . '/' . @$seoContents->image, getFileSize('seo')) : null;
 

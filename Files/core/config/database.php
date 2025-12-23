@@ -136,9 +136,10 @@ return [
     | provides a richer body of commands than a typical key-value system
     | such as Memcached. You may define your connection settings here.
     |
+    | Note: Redis configuration is only loaded if the Redis extension is available.
     */
 
-    'redis' => [
+    'redis' => extension_loaded('redis') ? [
 
         'client' => env('REDIS_CLIENT', 'phpredis'),
 
@@ -165,6 +166,6 @@ return [
             'database' => env('REDIS_CACHE_DB', '1'),
         ],
 
-    ],
+    ] : [],
 
 ];

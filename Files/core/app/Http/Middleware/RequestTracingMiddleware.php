@@ -31,16 +31,6 @@ class RequestTracingMiddleware
         $response->headers->set('X-Trace-ID', $traceId);
         $response->headers->set('X-Response-Time', round($duration, 2) . 'ms');
 
-        // 仅记录慢请求 (>500ms)
-        if ($duration > 500) {
-            Log::channel('performance')->warning('Slow request', [
-                'uri' => $request->path(),
-                'method' => $request->method(),
-                'duration_ms' => round($duration, 2),
-                'trace_id' => $traceId,
-            ]);
-        }
-
         return $response;
     }
 }

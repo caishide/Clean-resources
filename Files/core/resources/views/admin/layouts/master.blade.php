@@ -4,6 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{{ gs()->siteName($pageTitle ?? '') }}</title>
 
     <link rel="shortcut icon" type="image/png" href="{{siteFavicon()}}">
@@ -31,6 +32,17 @@
 <script src="{{asset('assets/global/js/jquery-3.7.1.min.js')}}"></script>
 <script src="{{asset('assets/global/js/bootstrap.bundle.min.js')}}"></script>
 <script src="{{asset('assets/admin/js/vendor/bootstrap-toggle.min.js')}}"></script>
+<script>
+    "use strict";
+    const csrfToken = document.querySelector('meta[name="csrf-token"]');
+    if (csrfToken) {
+        $.ajaxSetup({
+            headers: {
+                'X-CSRF-TOKEN': csrfToken.getAttribute('content')
+            }
+        });
+    }
+</script>
 
 
 @include('partials.notify')

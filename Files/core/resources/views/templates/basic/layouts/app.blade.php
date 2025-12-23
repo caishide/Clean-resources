@@ -5,6 +5,39 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <title> {{ gs()->siteName(__($pageTitle)) }}</title>
     @include('partials.seo')
+
+    <!-- DNS 预解析 -->
+    <link rel="dns-prefetch" href="//fonts.googleapis.com">
+    <link rel="dns-prefetch" href="//cdn.jsdelivr.net">
+
+    <!-- 预加载关键字体 -->
+    <link rel="preload" href="{{ asset('assets/global/fonts/la-solid-900.woff2') }}" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="{{ asset('assets/global/fonts/la-brands-400.woff2') }}" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="{{ asset('assets/templates/basic/css/flaticon.woff2') }}" as="font" type="font/woff2" crossorigin>
+
+    <!-- 字体显示策略 -->
+    <style>
+        @font-face {
+            font-family: 'Line Awesome Free';
+            font-weight: 900;
+            font-style: normal;
+            font-display: swap;
+            src: url('{{ asset('assets/global/fonts/la-solid-900.woff2') }}') format('woff2');
+        }
+        @font-face {
+            font-family: 'Line Awesome Brands';
+            font-weight: 400;
+            font-style: normal;
+            font-display: swap;
+            src: url('{{ asset('assets/global/fonts/la-brands-400.woff2') }}') format('woff2');
+        }
+        @font-face {
+            font-family: 'flaticon';
+            font-display: swap;
+            src: url('{{ asset('assets/templates/basic/css/flaticon.woff2') }}') format('woff2');
+        }
+    </style>
+
     <!-- Bootstrap CSS -->
     <link href="{{ asset('assets/global/css/bootstrap.min.css') }}" rel="stylesheet">
     <link href="{{ asset('assets/global/css/all.min.css') }}" rel="stylesheet">

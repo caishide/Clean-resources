@@ -247,12 +247,19 @@ class SevenTreasuresController extends Controller
     public function getRankDistribution(): JsonResponse
     {
         try {
+            // 🔒 修复SQL注入风险：使用安全的排序方式
+            $rankOrder = config('seven_treasures.rank_order', []);
+
+            // 对rank_order进行转义和验证
+            $safeRankOrder = array_map(function($rank) {
+                // 转义单引号防止SQL注入
+                return "'" . addslashes($rank) . "'";
+            }, $rankOrder);
+
             $distribution = User::whereNotNull('leader_rank_code')
                 ->selectRaw('leader_rank_code, COUNT(*) as count, AVG(leader_rank_multiplier) as avg_multiplier')
                 ->groupBy('leader_rank_code')
-                ->orderByRaw('FIELD(leader_rank_code, ' . implode(',', array_map(function($rank) {
-                    return "'{$rank}'";
-                }, config('seven_treasures.rank_order'))) . ')')
+                ->orderByRaw('FIELD(leader_rank_code, ' . implode(',', $safeRankOrder) . ')')
                 ->get();
 
             $config = config('seven_treasures.ranks');

@@ -11,13 +11,30 @@ use Illuminate\Support\Facades\Cache;
 
 class SevenTreasuresService
 {
+    private const DEFAULT_CONFIG = [
+        'ranks' => [],
+        'rank_order' => [],
+        'promotion' => [],
+        'cache' => [],
+    ];
+
     protected array $config;
     protected PVLedgerService $pvService;
 
     public function __construct()
     {
-        $this->config = config('seven_treasures');
+        $this->config = $this->resolveConfig();
         $this->pvService = app(PVLedgerService::class);
+    }
+
+    private function resolveConfig(): array
+    {
+        $config = config('seven_treasures');
+        if (!is_array($config)) {
+            $config = [];
+        }
+
+        return array_replace_recursive(self::DEFAULT_CONFIG, $config);
     }
 
     /**
@@ -29,6 +46,15 @@ class SevenTreasuresService
      */
     public function checkPromotionEligibility(User $user, ?string $targetRank = null): array
     {
+        if (empty($this->config['ranks']) || empty($this->config['rank_order'])) {
+            return [
+                'eligible' => false,
+                'reason' => '七宝配置缺失',
+                'current_rank' => $user->leader_rank_code,
+                'target_rank' => null,
+            ];
+        }
+
         $currentRank = $user->leader_rank_code;
         $nextRank = $targetRank ?: $this->getNextRank($currentRank);
         
@@ -36,6 +62,15 @@ class SevenTreasuresService
             return [
                 'eligible' => false,
                 'reason' => '已达到最高职级',
+                'current_rank' => $currentRank,
+                'target_rank' => $nextRank,
+            ];
+        }
+
+        if (!isset($this->config['ranks'][$nextRank])) {
+            return [
+                'eligible' => false,
+                'reason' => '职级配置不存在',
                 'current_rank' => $currentRank,
                 'target_rank' => $nextRank,
             ];
@@ -309,6 +344,10 @@ class SevenTreasuresService
      */
     public function getNextRank(?string $currentRank): ?string
     {
+        if (empty($this->config['rank_order'])) {
+            return null;
+        }
+
         if (!$currentRank) {
             return 'liuli_xingzhe'; // 第一级
         }
@@ -391,7 +430,9 @@ class SevenTreasuresService
     public function getUserRankInfo(User $user): array
     {
         $currentRank = $user->leader_rank_code;
-        $currentRankConfig = $currentRank ? $this->config['ranks'][$currentRank] : null;
+        $currentRankConfig = $currentRank && isset($this->config['ranks'][$currentRank])
+            ? $this->config['ranks'][$currentRank]
+            : null;
         $nextRankInfo = $this->checkPromotionEligibility($user);
         
         return [

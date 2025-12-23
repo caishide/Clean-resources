@@ -455,13 +455,20 @@ function dateSorting($arr)
 
 function gs($key = null)
 {
-    $general = Cache::get('GeneralSetting');
-    if (!$general) {
+    try {
+        $general = Cache::get('GeneralSetting');
+        if (!$general) {
+            $general = GeneralSetting::first();
+            Cache::put('GeneralSetting', $general);
+        }
+        if ($key) return @$general->$key;
+        return $general;
+    } catch (\Exception $e) {
+        // 如果缓存系统不可用，直接查询数据库
         $general = GeneralSetting::first();
-        Cache::put('GeneralSetting', $general);
+        if ($key) return @$general->$key;
+        return $general;
     }
-    if ($key) return @$general->$key;
-    return $general;
 }
 function isImage($string)
 {

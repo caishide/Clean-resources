@@ -13,7 +13,7 @@
                                 @lang('Dashboard')</p>
                         </div>
                         <div class="login-wrapper__body">
-                            <form action="{{ route('admin.login') }}" method="POST"
+                            <form action="{{ route('admin.login.submit', [], false) }}" method="POST"
                                 class="cmn-form mt-30 verify-gcaptcha login-form">
                                 @csrf
                                 <div class="form-group">

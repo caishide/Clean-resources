@@ -26,7 +26,12 @@
                     </ul>
                 </div>
                 <div class="card-footer">
-                    <a href="{{ route('admin.system.optimize.clear') }}" class="btn btn--primary w-100 h-45">@lang('Click to clear')</a>
+                    <form action="{{ route('admin.system.optimize.clear') }}" method="POST">
+                        @csrf
+                        <button type="submit" class="btn btn--primary w-100 h-45" onclick="return confirm('Are you sure you want to clear all caches?')">
+                            @lang('Click to clear')
+                        </button>
+                    </form>
                 </div>
             </div>
         </div>

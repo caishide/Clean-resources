@@ -98,6 +98,78 @@
         "route_name": "admin.adjustment-batches.index",
         "menu_active": "admin.adjustment-batches.*"
     },
+    "exceptions": {
+        "keyword": [
+            "Exception",
+            "Ticket",
+            "Anomaly",
+            "Refund",
+            "Dispute"
+        ],
+        "title": "异常与工单",
+        "icon": "las la-exclamation-triangle",
+        "menu_active": "admin.exceptions.*",
+        "submenu": [
+            {
+                "keyword": [
+                    "Exception Overview",
+                    "Exception",
+                    "Ticket"
+                ],
+                "title": "异常总览",
+                "route_name": "admin.exceptions.index",
+                "menu_active": "admin.exceptions.index"
+            },
+            {
+                "keyword": [
+                    "PV Anomaly",
+                    "PV",
+                    "Ledger"
+                ],
+                "title": "PV 异常",
+                "route_name": "admin.exceptions.pv",
+                "menu_active": "admin.exceptions.pv"
+            },
+            {
+                "keyword": [
+                    "Settlement Anomaly",
+                    "Settlement"
+                ],
+                "title": "结算异常",
+                "route_name": "admin.exceptions.settlements",
+                "menu_active": "admin.exceptions.settlements"
+            },
+            {
+                "keyword": [
+                    "Adjustment",
+                    "Refund",
+                    "Correction"
+                ],
+                "title": "调整批次",
+                "route_name": "admin.adjustment.batches",
+                "menu_active": "admin.adjustment.*"
+            },
+            {
+                "keyword": [
+                    "Pending Bonus",
+                    "Bonus Review"
+                ],
+                "title": "待处理奖金审核",
+                "route_name": "admin.bonus-review.index",
+                "menu_active": "admin.bonus-review.*"
+            },
+            {
+                "keyword": [
+                    "Support Ticket",
+                    "Ticket"
+                ],
+                "title": "工单",
+                "route_name": "admin.ticket.index",
+                "menu_active": "admin.ticket*",
+                "counter": "pendingTicketCount"
+            }
+        ]
+    },
     "exports": {
         "keyword": [
             "Export",

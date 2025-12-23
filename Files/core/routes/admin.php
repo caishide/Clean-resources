@@ -405,6 +405,13 @@ Route::middleware('admin')->group(function () {
         Route::post('finalize/{id}', 'finalize')->name('finalize');
     });
 
+    // Exceptions & tickets
+    Route::controller('ExceptionTicketController')->prefix('exceptions')->name('exceptions.')->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::get('pv', 'pv')->name('pv');
+        Route::get('settlements', 'settlements')->name('settlements');
+    });
+
     // Exports
     Route::controller('ExportController')->prefix('exports')->name('exports.')->group(function () {
         Route::get('weekly', 'weekly')->name('weekly');

@@ -11,7 +11,7 @@
             <div class="header-bottom-area">
                 <div class="logo">
                     <a href="{{ route('home') }}">
-                        <img src="{{ siteLogo('dark') }}" alt="logo">
+                        <img src="{{ siteLogo() }}" alt="logo">
                     </a>
                 </div>
                 <div class="header-trigger-wrapper d-flex d-lg-none align-items-center">

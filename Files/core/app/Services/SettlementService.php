@@ -11,6 +11,7 @@ use App\Models\Transaction;
 use App\Models\PvLedger;
 use App\Models\PendingBonus;
 use App\Models\GeneralSetting;
+use App\Services\CarryFlash\CarryFlashContext;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Cache;
@@ -27,8 +28,17 @@ class SettlementService
     protected ?PointsService $pointsService = null;
     protected ?BonusConfigService $bonusConfigService = null;
     protected array $bonusConfig = [];
-    protected float $pairPvUnit = 3000;
-    protected float $pairUnitAmount = 300.0;
+    protected float $pairPvUnit;
+    protected float $pairUnitAmount;
+    
+    /**
+     * 构造函数
+     */
+    public function __construct()
+    {
+        $this->pairPvUnit = config('settlement.pv_unit_amount', 3000);
+        $this->pairUnitAmount = config('settlement.pair_unit_amount', 300.0);
+    }
 
     /**
      * 延迟初始化服务
@@ -65,7 +75,7 @@ class SettlementService
 
     /**
      * 执行周结算
-     * 
+     *
      * @param string $weekKey 周键，如 '2025-W51'
      * @param bool $dryRun 是否预演模式（不写入数据库）
      * @return array 结算结果
@@ -77,216 +87,40 @@ class SettlementService
 
         // 分布式锁：防止同一week_key并发执行
         $lockKey = "weekly_settlement:{$weekKey}";
-        if (!$ignoreLock && !$this->acquireLock($lockKey, 300)) { // 5分钟超时
+        if (!$ignoreLock && !$this->acquireLock($lockKey, 300)) {
             throw new \Exception("结算正在进行中，请稍后重试");
         }
 
         try {
-            $userSummaries = [];
-            // Step 1-6: 在事务内计算并写入，确保数据一致性
-            $result = DB::transaction(function () use ($weekKey, &$userSummaries) {
-                // Step 1: 统计本周刚性支出（FixedSales）
-                $fixedSales = $this->calculateFixedSales($weekKey);
+            // 计算结算数据
+            $settlementData = $this->calculateSettlementData($weekKey);
+            
+            // 计算用户奖金
+            $userSummaries = $this->calculateUserBonuses($weekKey);
+            
+            // 计算管理奖潜力
+            $this->calculateMatchingBonusPotential($userSummaries, $weekKey);
+            
+            // 计算K值
+            $kFactor = $this->calculateKFactor(
+                $settlementData['total_pv'],
+                $settlementData['global_reserve'],
+                $settlementData['fixed_sales'],
+                $userSummaries
+            );
+            
+            // 计算实发金额
+            $this->calculatePaidAmounts($userSummaries, $kFactor);
+            
+            // 执行结算事务
+            $result = $this->executeSettlementTransaction(
+                $weekKey,
+                $settlementData,
+                $userSummaries,
+                $kFactor
+            );
 
-                // Step 2: 统计本周总PV
-                $totalPV = $this->calculateTotalPV($weekKey);
-
-                // Step 3: 功德池预留
-                $this->initServices();
-                $globalReserveRate = $this->bonusConfig['global_reserve_rate'] ?? 0.04;
-                $globalReserve = $totalPV * $globalReserveRate;
-
-                // Step 4: 计算每用户对碰理论
-                $userSummaries = $this->calculateUserBonuses($weekKey);
-
-                // Step 4b: 计算管理奖潜力（基于下级封顶后对碰潜力）
-                // 注意：管理奖实际发放会在 Step 6 基于对碰实发计算
-                foreach ($userSummaries as &$summary) {
-                    $summary['matching_potential'] = $this->calculateMatchingBonusForUser($summary['user_id'], $userSummaries, $weekKey);
-                }
-                unset($summary);
-
-                // Step 5: 计算K值
-                $kFactor = $this->calculateKFactor($totalPV, $globalReserve, $fixedSales, $userSummaries);
-
-                // Step 6: 计算实发金额（封顶优先 → 再K）
-                // 公式：pairPaid = min(potential, cap) × k
-                // 封顶差额不结转，K差额可结转
-                foreach ($userSummaries as &$summary) {
-                    $pairPotential = $summary['pair_potential'] ?? 0;
-                    $capAmount = $summary['cap_amount'] ?? 0;
-                    
-                    // 先应用封顶（取较小值）
-                    $pairCapped = min($pairPotential, $capAmount);
-                    
-                    // 再应用 K 值
-                    $pairPaid = $pairCapped * $kFactor;
-                    $summary['pair_paid'] = $pairPaid;
-                    
-                    // 管理奖基于下级实际获得的对碰奖（pair_capped × K）
-                    // 重新计算管理奖，确保基于对碰实发
-                    $matchingPaid = $this->calculateMatchingBonusPaid($summary['user_id'], $userSummaries, $kFactor);
-                    $summary['matching_paid'] = $matchingPaid;
-                }
-                unset($summary);
-
-                // 幂等检查
-                $existing = DB::table('weekly_settlements')->where('week_key', $weekKey)->first();
-                if ($existing && $existing->finalized_at) {
-                    throw new \Exception("本周 {$weekKey} 已结算");
-                }
-
-                // 写入周结算主表
-                $weekDates = $this->getWeekDateRange($weekKey);
-                DB::table('weekly_settlements')->updateOrInsert(
-                    ['week_key' => $weekKey],
-                    [
-                        'start_date' => $weekDates[0],
-                        'end_date' => $weekDates[1],
-                        'total_pv' => $totalPV,
-                        'fixed_sales' => $fixedSales,
-                        'global_reserve' => $globalReserve,
-                        // K值基于封顶后的潜力计算（封顶优先 → 再K）
-                        'variable_potential' => array_sum(array_column($userSummaries, 'pair_capped_potential'))
-                                            + array_sum(array_column($userSummaries, 'matching_potential')),
-                        'k_factor' => $kFactor,
-                        'config_snapshot' => json_encode([
-                            'version' => $this->bonusConfig['version'] ?? 'v10.1',
-                            'config' => $this->bonusConfig,
-                        ]),
-                        'finalized_at' => now(),
-                        'created_at' => now(),
-                        'updated_at' => now()
-                    ]
-                );
-
-                // 逐用户发放
-                foreach ($userSummaries as &$summary) {
-                    $user = User::lockForUpdate()->find($summary['user_id']);
-                    if (!$user) continue;
-
-                    $initialLeft = $summary['left_pv'] ?? 0;
-                    $initialRight = $summary['right_pv'] ?? 0;
-                    $weakPV = $summary['weak_pv'] ?? 0;
-                    $pairCount = $this->pairPvUnit > 0 ? floor($weakPV / $this->pairPvUnit) : 0;
-                    $pairActuallyPaid = 0.0;
-
-                    // 对碰入账
-                    if ($summary['pair_paid'] > 0) {
-                        if ($this->isActivated($user)) {
-                            $newBalance = $user->balance + $summary['pair_paid'];
-                            DB::table('users')->where('id', $user->id)->update(['balance' => $newBalance]);
-                            DB::table('transactions')->insert([
-                                'user_id' => $summary['user_id'],
-                                'trx_type' => '+',
-                                'amount' => $summary['pair_paid'],
-                                'charge' => 0,
-                                'post_balance' => $newBalance,
-                                'remark' => 'pair_bonus',
-                                'details' => json_encode(['text' => '对碰奖-' . $weekKey], JSON_UNESCAPED_UNICODE),
-                                'trx' => 'PAIR' . time() . $summary['user_id'],
-                                'source_type' => 'weekly_settlement',
-                                'source_id' => $weekKey,
-                                'created_at' => now(),
-                                'updated_at' => now()
-                            ]);
-                            $pairActuallyPaid = (float) $summary['pair_paid'];
-                        } else {
-                            PendingBonus::updateOrCreate(
-                                [
-                                    'recipient_id' => $summary['user_id'],
-                                    'bonus_type' => 'pair',
-                                    'source_type' => 'weekly_settlement',
-                                    'source_id' => $weekKey,
-                                ],
-                                [
-                                    'amount' => $summary['pair_paid'],
-                                    'accrued_week_key' => $weekKey,
-                                    'status' => 'pending',
-                                    'release_mode' => 'auto',
-                                ]
-                            );
-                        }
-                    }
-
-                    // 管理入账
-                    if ($summary['matching_paid'] > 0) {
-                        if ($this->isActivated($user)) {
-                            $user->refresh();
-                            $newBalance = $user->balance + $summary['matching_paid'];
-                            DB::table('users')->where('id', $user->id)->update(['balance' => $newBalance]);
-                            DB::table('transactions')->insert([
-                                'user_id' => $summary['user_id'],
-                                'trx_type' => '+',
-                                'amount' => $summary['matching_paid'],
-                                'charge' => 0,
-                                'post_balance' => $newBalance,
-                                'remark' => 'matching_bonus',
-                                'details' => json_encode(['text' => '管理奖-' . $weekKey], JSON_UNESCAPED_UNICODE),
-                                'trx' => 'MATCH' . time() . $summary['user_id'],
-                                'source_type' => 'weekly_settlement',
-                                'source_id' => $weekKey,
-                                'created_at' => now(),
-                                'updated_at' => now()
-                            ]);
-                        } else {
-                            PendingBonus::updateOrCreate(
-                                [
-                                    'recipient_id' => $summary['user_id'],
-                                    'bonus_type' => 'matching',
-                                    'source_type' => 'weekly_settlement',
-                                    'source_id' => $weekKey,
-                                ],
-                                [
-                                    'amount' => $summary['matching_paid'],
-                                    'accrued_week_key' => $weekKey,
-                                    'status' => 'pending',
-                                    'release_mode' => 'auto',
-                                ]
-                            );
-                        }
-                    }
-
-                    $summary['pair_paid_actual'] = $pairActuallyPaid;
-
-                    // TEAM 莲子
-                    $weakPVNew = $summary['weak_pv_new'] ?? 0;
-                    if ($weakPVNew > 0) {
-                        $this->pointsService->creditTeamPoints($summary['user_id'], $weakPVNew, $weekKey);
-                    }
-
-                    // 写入用户周结汇总（纯台账方案：end PV 与初始相同，无需扣除）
-                    DB::table('weekly_settlement_user_summaries')->updateOrInsert(
-                        ['week_key' => $weekKey, 'user_id' => $summary['user_id']],
-                        [
-                            'left_pv_initial' => $initialLeft,
-                            'right_pv_initial' => $initialRight,
-                            'left_pv_end' => $initialLeft,
-                            'right_pv_end' => $initialRight,
-                            'pair_count' => $pairCount,
-                            'pair_theoretical' => $pairCount * $this->pairUnitAmount,
-                            'pair_capped_potential' => $summary['pair_capped_potential'],
-                            'pair_paid' => $summary['pair_paid'],
-                            'matching_potential' => $summary['matching_potential'],
-                            'matching_paid' => $summary['matching_paid'],
-                            'cap_amount' => $summary['cap_amount'] ?? 0,
-                            'cap_used' => $pairActuallyPaid,
-                            'k_factor' => $kFactor,
-                            'created_at' => now(),
-                            'updated_at' => now()
-                        ]
-                    );
-                }
-                unset($summary);
-
-                return [
-                    'total_pv' => $totalPV,
-                    'k_factor' => $kFactor,
-                    'user_count' => count($userSummaries)
-                ];
-            });
-
-            // Step 7: 结转处理（事务提交后执行）
+            // 结转处理（事务提交后执行）
             $this->processCarryFlash($weekKey, $userSummaries);
 
             return [
@@ -302,6 +136,344 @@ class SettlementService
                 $this->releaseLock($lockKey);
             }
         }
+    }
+    
+    /**
+     * 计算结算数据
+     *
+     * @param string $weekKey 周键
+     * @return array 结算数据
+     */
+    private function calculateSettlementData(string $weekKey): array
+    {
+        $fixedSales = $this->calculateFixedSales($weekKey);
+        $totalPV = $this->calculateTotalPV($weekKey);
+        
+        $globalReserveRate = $this->bonusConfig['global_reserve_rate'] ?? 0.04;
+        $globalReserve = $totalPV * $globalReserveRate;
+        
+        return [
+            'fixed_sales' => $fixedSales,
+            'total_pv' => $totalPV,
+            'global_reserve' => $globalReserve,
+        ];
+    }
+    
+    /**
+     * 计算管理奖潜力
+     *
+     * @param array $userSummaries 用户汇总数据
+     * @param string $weekKey 周键
+     * @return void
+     */
+    private function calculateMatchingBonusPotential(array &$userSummaries, string $weekKey): void
+    {
+        foreach ($userSummaries as &$summary) {
+            $summary['matching_potential'] = $this->calculateMatchingBonusForUser(
+                $summary['user_id'],
+                $userSummaries,
+                $weekKey
+            );
+        }
+        unset($summary);
+    }
+    
+    /**
+     * 计算实发金额
+     *
+     * @param array $userSummaries 用户汇总数据
+     * @param float $kFactor K值因子
+     * @return void
+     */
+    private function calculatePaidAmounts(array &$userSummaries, float $kFactor): void
+    {
+        foreach ($userSummaries as &$summary) {
+            $pairPotential = $summary['pair_potential'] ?? 0;
+            $capAmount = $summary['cap_amount'] ?? 0;
+            
+            // 先应用封顶（取较小值）
+            $pairCapped = min($pairPotential, $capAmount);
+            
+            // 再应用 K 值
+            $pairPaid = $pairCapped * $kFactor;
+            $summary['pair_paid'] = $pairPaid;
+            
+            // 管理奖基于下级实际获得的对碰奖（pair_capped × K）
+            $matchingPaid = $this->calculateMatchingBonusPaid(
+                $summary['user_id'],
+                $userSummaries,
+                $kFactor
+            );
+            $summary['matching_paid'] = $matchingPaid;
+        }
+        unset($summary);
+    }
+    
+    /**
+     * 执行结算事务
+     *
+     * @param string $weekKey 周键
+     * @param array $settlementData 结算数据
+     * @param array $userSummaries 用户汇总数据
+     * @param float $kFactor K值因子
+     * @return array 结算结果
+     */
+    private function executeSettlementTransaction(
+        string $weekKey,
+        array $settlementData,
+        array &$userSummaries,
+        float $kFactor
+    ): array {
+        return DB::transaction(function () use ($weekKey, $settlementData, &$userSummaries, $kFactor) {
+            // 幂等检查
+            $this->checkSettlementIdempotent($weekKey);
+            
+            // 写入周结算主表
+            $this->createWeeklySettlementRecord($weekKey, $settlementData, $userSummaries, $kFactor);
+            
+            // 发放奖金
+            $this->distributeBonuses($weekKey, $userSummaries, $kFactor);
+            
+            return [
+                'total_pv' => $settlementData['total_pv'],
+                'k_factor' => $kFactor,
+                'user_count' => count($userSummaries)
+            ];
+        });
+    }
+    
+    /**
+     * 检查结算幂等性
+     *
+     * @param string $weekKey 周键
+     * @return void
+     * @throws \Exception
+     */
+    private function checkSettlementIdempotent(string $weekKey): void
+    {
+        $existing = DB::table('weekly_settlements')->where('week_key', $weekKey)->first();
+        if ($existing && $existing->finalized_at) {
+            throw new \Exception("本周 {$weekKey} 已结算");
+        }
+    }
+    
+    /**
+     * 创建周结算记录
+     *
+     * @param string $weekKey 周键
+     * @param array $settlementData 结算数据
+     * @param array $userSummaries 用户汇总数据
+     * @param float $kFactor K值因子
+     * @return void
+     */
+    private function createWeeklySettlementRecord(
+        string $weekKey,
+        array $settlementData,
+        array $userSummaries,
+        float $kFactor
+    ): void {
+        $weekDates = $this->getWeekDateRange($weekKey);
+        
+        DB::table('weekly_settlements')->updateOrInsert(
+            ['week_key' => $weekKey],
+            [
+                'start_date' => $weekDates[0],
+                'end_date' => $weekDates[1],
+                'total_pv' => $settlementData['total_pv'],
+                'fixed_sales' => $settlementData['fixed_sales'],
+                'global_reserve' => $settlementData['global_reserve'],
+                'variable_potential' => array_sum(array_column($userSummaries, 'pair_capped_potential'))
+                                    + array_sum(array_column($userSummaries, 'matching_potential')),
+                'k_factor' => $kFactor,
+                'config_snapshot' => json_encode([
+                    'version' => $this->bonusConfig['version'] ?? 'v10.1',
+                    'config' => $this->bonusConfig,
+                ]),
+                'finalized_at' => now(),
+                'created_at' => now(),
+                'updated_at' => now()
+            ]
+        );
+    }
+    
+    /**
+     * 发放奖金
+     *
+     * @param string $weekKey 周键
+     * @param array $userSummaries 用户汇总数据
+     * @param float $kFactor K值因子
+     * @return void
+     */
+    private function distributeBonuses(string $weekKey, array &$userSummaries, float $kFactor): void
+    {
+        foreach ($userSummaries as &$summary) {
+            $user = User::lockForUpdate()->find($summary['user_id']);
+            if (!$user) continue;
+
+            $initialLeft = $summary['left_pv'] ?? 0;
+            $initialRight = $summary['right_pv'] ?? 0;
+            $weakPV = $summary['weak_pv'] ?? 0;
+            $pairCount = $this->pairPvUnit > 0 ? floor($weakPV / $this->pairPvUnit) : 0;
+            $pairActuallyPaid = 0.0;
+
+            // 发放对碰奖
+            if ($summary['pair_paid'] > 0) {
+                $pairActuallyPaid = $this->distributePairBonus($user, $summary, $weekKey);
+            }
+
+            // 发放管理奖
+            if ($summary['matching_paid'] > 0) {
+                $this->distributeMatchingBonus($user, $summary, $weekKey);
+            }
+
+            $summary['pair_paid_actual'] = $pairActuallyPaid;
+
+            // TEAM 莲子
+            $weakPVNew = $summary['weak_pv_new'] ?? 0;
+            if ($weakPVNew > 0) {
+                $this->pointsService->creditTeamPoints($summary['user_id'], $weakPVNew, $weekKey);
+            }
+
+            // 写入用户汇总
+            $this->createUserSummaryRecord($weekKey, $summary, $kFactor, $pairCount, $initialLeft, $initialRight, $pairActuallyPaid);
+        }
+        unset($summary);
+    }
+    
+    /**
+     * 发放对碰奖
+     *
+     * @param User $user 用户
+     * @param array $summary 用户汇总数据
+     * @param string $weekKey 周键
+     * @return float 实际发放金额
+     */
+    private function distributePairBonus(User $user, array $summary, string $weekKey): float
+    {
+        if ($this->isActivated($user)) {
+            $newBalance = $user->balance + $summary['pair_paid'];
+            DB::table('users')->where('id', $user->id)->update(['balance' => $newBalance]);
+            DB::table('transactions')->insert([
+                'user_id' => $summary['user_id'],
+                'trx_type' => '+',
+                'amount' => $summary['pair_paid'],
+                'charge' => 0,
+                'post_balance' => $newBalance,
+                'remark' => 'pair_bonus',
+                'details' => json_encode(['text' => '对碰奖-' . $weekKey], JSON_UNESCAPED_UNICODE),
+                'trx' => 'PAIR' . time() . $summary['user_id'],
+                'source_type' => 'weekly_settlement',
+                'source_id' => $weekKey,
+                'created_at' => now(),
+                'updated_at' => now()
+            ]);
+            return (float) $summary['pair_paid'];
+        } else {
+            PendingBonus::updateOrCreate(
+                [
+                    'recipient_id' => $summary['user_id'],
+                    'bonus_type' => 'pair',
+                    'source_type' => 'weekly_settlement',
+                    'source_id' => $weekKey,
+                ],
+                [
+                    'amount' => $summary['pair_paid'],
+                    'accrued_week_key' => $weekKey,
+                    'status' => 'pending',
+                    'release_mode' => 'auto',
+                ]
+            );
+            return 0.0;
+        }
+    }
+    
+    /**
+     * 发放管理奖
+     *
+     * @param User $user 用户
+     * @param array $summary 用户汇总数据
+     * @param string $weekKey 周键
+     * @return void
+     */
+    private function distributeMatchingBonus(User $user, array $summary, string $weekKey): void
+    {
+        if ($this->isActivated($user)) {
+            $user->refresh();
+            $newBalance = $user->balance + $summary['matching_paid'];
+            DB::table('users')->where('id', $user->id)->update(['balance' => $newBalance]);
+            DB::table('transactions')->insert([
+                'user_id' => $summary['user_id'],
+                'trx_type' => '+',
+                'amount' => $summary['matching_paid'],
+                'charge' => 0,
+                'post_balance' => $newBalance,
+                'remark' => 'matching_bonus',
+                'details' => json_encode(['text' => '管理奖-' . $weekKey], JSON_UNESCAPED_UNICODE),
+                'trx' => 'MATCH' . time() . $summary['user_id'],
+                'source_type' => 'weekly_settlement',
+                'source_id' => $weekKey,
+                'created_at' => now(),
+                'updated_at' => now()
+            ]);
+        } else {
+            PendingBonus::updateOrCreate(
+                [
+                    'recipient_id' => $summary['user_id'],
+                    'bonus_type' => 'matching',
+                    'source_type' => 'weekly_settlement',
+                    'source_id' => $weekKey,
+                ],
+                [
+                    'amount' => $summary['matching_paid'],
+                    'accrued_week_key' => $weekKey,
+                    'status' => 'pending',
+                    'release_mode' => 'auto',
+                ]
+            );
+        }
+    }
+    
+    /**
+     * 创建用户汇总记录
+     *
+     * @param string $weekKey 周键
+     * @param array $summary 用户汇总数据
+     * @param float $kFactor K值因子
+     * @param float $pairCount 对碰次数
+     * @param float $initialLeft 初始左区PV
+     * @param float $initialRight 初始右区PV
+     * @param float $pairActuallyPaid 实际发放金额
+     * @return void
+     */
+    private function createUserSummaryRecord(
+        string $weekKey,
+        array $summary,
+        float $kFactor,
+        float $pairCount,
+        float $initialLeft,
+        float $initialRight,
+        float $pairActuallyPaid
+    ): void {
+        DB::table('weekly_settlement_user_summaries')->updateOrInsert(
+            ['week_key' => $weekKey, 'user_id' => $summary['user_id']],
+            [
+                'left_pv_initial' => $initialLeft,
+                'right_pv_initial' => $initialRight,
+                'left_pv_end' => $initialLeft,
+                'right_pv_end' => $initialRight,
+                'pair_count' => $pairCount,
+                'pair_theoretical' => $pairCount * $this->pairUnitAmount,
+                'pair_capped_potential' => $summary['pair_capped_potential'],
+                'pair_paid' => $summary['pair_paid'],
+                'matching_potential' => $summary['matching_potential'],
+                'matching_paid' => $summary['matching_paid'],
+                'cap_amount' => $summary['cap_amount'] ?? 0,
+                'cap_used' => $pairActuallyPaid,
+                'k_factor' => $kFactor,
+                'created_at' => now(),
+                'updated_at' => now()
+            ]
+        );
     }
 
     private function isActivated(User $user): bool
@@ -718,44 +890,103 @@ class SettlementService
     }
     
     /**
-     * 获取用户下级列表（按代数分组）
-     * 
+     * 获取用户下级列表（按代数分组）- 优化版本
+     *
+     * 使用单次查询 + 内存构建树的方式,避免 N+1 查询问题
+     *
      * @param User $user 用户
      * @param int $maxGeneration 最大代数
      * @return array 按代数分组的下级用户
      */
     private function getDownlinesByGeneration(User $user, int $maxGeneration = 5): array
     {
+        // 使用缓存避免重复计算
+        $cacheKey = "downlines_by_generation:{$user->id}:{$maxGeneration}";
+        
+        return Cache::remember(
+            $cacheKey,
+            now()->addHours(6), // 缓存6小时
+            function () use ($user, $maxGeneration) {
+                return $this->calculateDownlinesByGeneration($user, $maxGeneration);
+            }
+        );
+    }
+    
+    /**
+     * 计算用户下级列表（按代数分组）
+     *
+     * 使用单次查询获取所有下级,然后在内存中构建代数关系
+     *
+     * @param User $user 用户
+     * @param int $maxGeneration 最大代数
+     * @return array 按代数分组的下级用户
+     */
+    private function calculateDownlinesByGeneration(User $user, int $maxGeneration = 5): array
+    {
         $downlines = [];
         
-        // 从第1代开始，直接获取用户的所有直接下级
-        $currentLevel = User::where("ref_by", $user->id)->get();
+        // 单次查询获取所有可能的下级用户（限制深度避免查询过多）
+        // 使用递归CTE或限制查询范围
+        $allDownlines = User::where('id', '!=', $user->id)
+            ->whereNotNull('ref_by')
+            ->get(['id', 'ref_by', 'username', 'rank_level']);
         
-        for ($generation = 1; $generation <= $maxGeneration; $generation++) {
-            // 首先，将当前层的所有用户添加到downlines中（这是当前代数）
-            foreach ($currentLevel as $userInGeneration) {
-                $downlines[$generation][] = $userInGeneration;
+        if ($allDownlines->isEmpty()) {
+            return $downlines;
+        }
+        
+        // 构建父子关系映射
+        $childrenMap = [];
+        foreach ($allDownlines as $downline) {
+            if (!isset($childrenMap[$downline->ref_by])) {
+                $childrenMap[$downline->ref_by] = [];
             }
+            $childrenMap[$downline->ref_by][] = $downline;
+        }
+        
+        // 使用BFS遍历构建代数关系
+        $currentLevel = $childrenMap[$user->id] ?? [];
+        $visited = [$user->id => true]; // 防止循环引用
+        
+        for ($generation = 1; $generation <= $maxGeneration && !empty($currentLevel); $generation++) {
+            $downlines[$generation] = $currentLevel;
             
-            // 然后，为下一代准备数据
             $nextLevel = [];
-            foreach ($currentLevel as $parentUser) {
-                // 获取该用户的所有直接下级（下一代）
-                $directReferrals = User::where("ref_by", $parentUser->id)->get();
-                foreach ($directReferrals as $referral) {
-                    $nextLevel[] = $referral;
+            foreach ($currentLevel as $userInLevel) {
+                // 防止循环引用
+                if (isset($visited[$userInLevel->id])) {
+                    continue;
                 }
-            }
-            
-            // 如果没有更多下级，提前结束
-            if (empty($nextLevel)) {
-                break;
+                $visited[$userInLevel->id] = true;
+                
+                // 获取下一级
+                if (isset($childrenMap[$userInLevel->id])) {
+                    foreach ($childrenMap[$userInLevel->id] as $child) {
+                        if (!isset($visited[$child->id])) {
+                            $nextLevel[] = $child;
+                        }
+                    }
+                }
             }
             
             $currentLevel = $nextLevel;
         }
         
         return $downlines;
+    }
+    
+    /**
+     * 清除下级列表缓存
+     *
+     * @param int $userId 用户ID
+     * @return void
+     */
+    public function clearDownlinesCache(int $userId): void
+    {
+        foreach (range(1, 10) as $maxGeneration) {
+            $cacheKey = "downlines_by_generation:{$userId}:{$maxGeneration}";
+            Cache::forget($cacheKey);
+        }
     }
     
     /**

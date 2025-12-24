@@ -75,7 +75,12 @@
                                                 <div class="col-md-12">
                                                     <div class="form-group">
                                                         <label>{{ __(keyToTitle($k)) }}</label>
-                                                        <input type="text" class="form-control" name="{{ $k }}" value="{{ @$content->data_values->$k }}" required>
+                                                        @if ($k == 'map_iframe_url')
+                                                            <input type="url" class="form-control" name="{{ $k }}" value="{{ @$content->data_values->$k }}" placeholder="https://www.google.com/maps/embed?...">
+                                                            <small class="text-muted">@lang('Enter Google Maps Embed URL (only the src URL, not the full iframe tag)')</small>
+                                                        @else
+                                                            <input type="text" class="form-control" name="{{ $k }}" value="{{ @$content->data_values->$k }}" required>
+                                                        @endif
                                                     </div>
                                                 </div>
                                             @endif

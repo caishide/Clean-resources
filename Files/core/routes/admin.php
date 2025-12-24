@@ -314,12 +314,12 @@ Route::middleware('admin')->group(function () {
         Route::get('system-update/log', 'systemUpdateLog')->name('update.log');
     });
 
-    // Performance Monitoring
-    Route::controller('PerformanceController')->name('performance.')->prefix('performance')->group(function () {
-        Route::get('/', 'index')->name('index');
-        Route::get('logs', 'logs')->name('logs');
-        Route::post('clear-logs', 'clearLogs')->name('clearLogs');
-    });
+    // Performance Monitoring - 临时注释，等待 PerformanceController 实现
+    // Route::controller('PerformanceController')->name('performance.')->prefix('performance')->group(function () {
+    //     Route::get('/', 'index')->name('index');
+    //     Route::get('logs', 'logs')->name('logs');
+    //     Route::post('clear-logs', 'clearLogs')->name('clearLogs');
+    // });
 
 
     // SEO

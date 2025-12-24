@@ -7,6 +7,7 @@ use App\Models\PvLedger;
 use App\Models\UserExtra;
 use App\Models\Order;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 
 class PVLedgerService
 {
@@ -67,8 +68,28 @@ class PVLedgerService
 
     /**
      * 获取安置链（无限层，直到根或无pos_id）
+     *
+     * 优化版本：使用缓存避免 N+1 查询问题
      */
     private function getPlacementChain(User $user): array
+    {
+        // 使用缓存存储安置链，缓存 24 小时
+        return Cache::remember(
+            "placement_chain:{$user->id}",
+            now()->addHours(24),
+            function () use ($user) {
+                return $this->calculatePlacementChain($user);
+            }
+        );
+    }
+
+    /**
+     * 计算安置链（实际执行查询的方法）
+     *
+     * @param User $user 用户
+     * @return array 安置链
+     */
+    private function calculatePlacementChain(User $user): array
     {
         $chain = [];
         $current = $user;
@@ -93,6 +114,19 @@ class PVLedgerService
         }
 
         return $chain;
+    }
+
+    /**
+     * 清除用户安置链缓存
+     *
+     * 当用户的安置关系发生变化时调用此方法
+     *
+     * @param int $userId 用户ID
+     * @return void
+     */
+    public function clearPlacementChainCache(int $userId): void
+    {
+        Cache::forget("placement_chain:{$userId}");
     }
 
     /**

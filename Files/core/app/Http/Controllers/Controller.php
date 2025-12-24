@@ -12,7 +12,12 @@ abstract class Controller
         Onumoti::mySite($this,$className);
     }
 
-    public static function middleware()
+    /**
+     * Get the middleware groups that should be applied to the controller.
+     *
+     * @return array<int, class-string|string>
+     */
+    public static function middleware(): array
     {
         return [];
     }

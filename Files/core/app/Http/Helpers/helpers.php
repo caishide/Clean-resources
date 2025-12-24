@@ -201,12 +201,32 @@ function getTemplates()
 
 function getPageSections($arr = false)
 {
-    $jsonUrl  = resource_path('views/') . str_replace('.', '/', activeTemplate()) . 'sections.json';
-    $sections = json_decode(file_get_contents($jsonUrl));
-    if ($arr) {
-        $sections = json_decode(file_get_contents($jsonUrl), true);
-        ksort($sections);
+    $jsonUrl = resource_path('views/') . str_replace('.', '/', activeTemplate()) . 'sections.json';
+
+    // 检查文件是否存在且可读
+    if (!file_exists($jsonUrl) || !is_readable($jsonUrl)) {
+        return $arr ? [] : null;
     }
+
+    $content = @file_get_contents($jsonUrl);
+    if ($content === false) {
+        return $arr ? [] : null;
+    }
+
+    $sections = json_decode($content);
+
+    // 检查 JSON 解析是否成功
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        return $arr ? [] : null;
+    }
+
+    if ($arr) {
+        $sections = json_decode($content, true);
+        if (is_array($sections)) {
+            ksort($sections);
+        }
+    }
+
     return $sections;
 }
 

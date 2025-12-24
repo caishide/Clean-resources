@@ -5,12 +5,26 @@ namespace App\Http\Controllers\Admin;
 use App\Models\Frontend;
 use App\Http\Controllers\Controller;
 use App\Rules\FileTypeValidate;
+use App\Services\FileUploadService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class FrontendController extends Controller
 {
+    /**
+     * @var FileUploadService
+     */
+    protected FileUploadService $fileUploadService;
+
+    /**
+     * 构造函数
+     */
+    public function __construct(FileUploadService $fileUploadService)
+    {
+        $this->fileUploadService = $fileUploadService;
+        // Laravel 11 中间件在路由中注册
+    }
 
     public function index(){
         $pageTitle = 'Manage Frontend Content';
@@ -63,8 +77,9 @@ class FrontendController extends Controller
 
     public function frontendSections($key)
     {
-        $section = @getPageSections()->$key;
-        abort_if(!$section || !$section->builder,404);
+        $sections = getPageSections();
+        abort_if(!$sections || !isset($sections->$key) || !$sections->$key->builder, 404);
+        $section = $sections->$key;
         $content = Frontend::where('data_keys', $key . '.content')->where('tempname',activeTemplateName())->orderBy('id','desc')->first();
         $elements = Frontend::where('data_keys', $key . '.element')->where('tempname',activeTemplateName())->orderBy('id','desc')->get();
         $pageTitle = $section->name ;
@@ -150,9 +165,17 @@ class FrontendController extends Controller
             $inputContentValue['image'] = @$content->data_values->image;
             if ($request->hasFile('image_input')) {
                 try {
-                    $inputContentValue['image'] = fileUploader($request->image_input,getFilePath('seo'), getFileSize('seo'), @$content->data_values->image);
+                    // 使用安全的文件上传服务
+                    $uploadResult = $this->fileUploadService->uploadImage(
+                        $request->image_input,
+                        getFilePath('seo'),
+                        getFileSize('seo'),
+                        @$content->data_values->image,
+                        true // 创建缩略图
+                    );
+                    $inputContentValue['image'] = $uploadResult['path'];
                 } catch (\Exception $exp) {
-                    $notify[] = ['error', 'Couldn\'t upload the image'];
+                    $notify[] = ['error', '图片上传失败: ' . $exp->getMessage()];
                     return back()->withNotify($notify);
                 }
             }
@@ -162,9 +185,17 @@ class FrontendController extends Controller
                     $imgData = @$request->image_input[$imgKey];
                     if (is_file($imgData)) {
                         try {
-                            $inputContentValue[$imgKey] = $this->storeImage($imgJson,$type,$key,$imgData,$imgKey,@$content->data_values->$imgKey);
+                            // 使用安全的文件上传服务
+                            $uploadResult = $this->fileUploadService->uploadImage(
+                                $imgData,
+                                'assets/images/frontend/' . $key,
+                                @$imgJson->$imgKey->size ?: getFileSize('seo'),
+                                @$content->data_values->$imgKey,
+                                !empty($imgJson->$imgKey->thumb)
+                            );
+                            $inputContentValue[$imgKey] = $uploadResult['path'];
                         } catch (\Exception $exp) {
-                            $notify[] = ['error', 'Couldn\'t upload the image'];
+                            $notify[] = ['error', '图片上传失败: ' . $exp->getMessage()];
                             return back()->withNotify($notify);
                         }
                     } else if (isset($content->data_values->$imgKey)) {
@@ -259,10 +290,18 @@ class FrontendController extends Controller
         $image = @$data->seo_content->image;
         if ($request->hasFile('image')) {
             try {
-                $path = 'assets/images/frontend/' . $key.'/seo';
-                $image = fileUploader($request->image,$path, getFileSize('seo'), @$data->seo_content->image);
+                // 使用安全的文件上传服务
+                $path = 'assets/images/frontend/' . $key . '/seo';
+                $uploadResult = $this->fileUploadService->uploadImage(
+                    $request->image,
+                    $path,
+                    getFileSize('seo'),
+                    @$data->seo_content->image,
+                    false // SEO图片不需要缩略图
+                );
+                $image = $uploadResult['path'];
             } catch (\Exception $exp) {
-                $notify[] = ['error', 'Couldn\'t upload the image'];
+                $notify[] = ['error', '图片上传失败: ' . $exp->getMessage()];
                 return back()->withNotify($notify);
             }
         }
@@ -305,12 +344,14 @@ class FrontendController extends Controller
             $imgJson = @getPageSections()->$key->$type->images;
             if ($imgJson) {
                 foreach ($imgJson as $imgKey => $imgValue) {
-                    fileManager()->removeFile($path . '/' . @$frontend->data_values->$imgKey);
-                    fileManager()->removeFile($path . '/thumb_' . @$frontend->data_values->$imgKey);
+                    // 使用安全的文件删除服务
+                    $filePath = $path . '/' . @$frontend->data_values->$imgKey;
+                    $this->fileUploadService->deleteFile($filePath);
                 }
             }
             if (@getPageSections()->$key->element->seo) {
-                fileManager()->removeFile($path . '/seo/' . @$frontend->seo_content->image);
+                $seoImagePath = $path . '/seo/' . @$frontend->seo_content->image;
+                $this->fileUploadService->deleteFile($seoImagePath);
             }
         }
         $frontend->delete();

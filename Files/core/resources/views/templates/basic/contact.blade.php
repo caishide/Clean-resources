@@ -74,8 +74,9 @@
                 </div>
                 <div class="col-lg-6 col-xl-7">
                     <div class="map-wrapper">
-                        <iframe class="map" src="{{ __(@$contactContent->data_values->map_iframe_url) }}" style="border:0;" allowfullscreen=""
-                            loading="lazy"></iframe>
+                        @if (@$contactContent->data_values->map_iframe_url)
+                            <iframe class="map" src="{{ @$contactContent->data_values->map_iframe_url }}" style="border:0;" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+                        @endif
                     </div>
                 </div>
             </div>

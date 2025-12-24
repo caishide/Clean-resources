@@ -13,8 +13,8 @@ class QueryLogServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        // 仅在开发/调试环境启用
-        if (!config('app.debug')) {
+        // 仅在开发环境启用，排除测试环境
+        if (!config('app.debug') || app()->environment('testing')) {
             return;
         }
 

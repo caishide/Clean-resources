@@ -42,12 +42,14 @@ class SettlementController extends Controller
     public function getUserPVSummary(Request $request): JsonResponse
     {
         $user = Auth::user();
+        $includeCarry = filter_var($request->input('include_carry', true), FILTER_VALIDATE_BOOLEAN);
 
-        $summary = $this->pvLedgerService->getUserPVSummary($user->id);
+        $summary = $this->pvLedgerService->getUserPVSummary($user->id, $includeCarry);
 
         return response()->json([
             'status' => 'success',
             'data' => [
+                'include_carry' => $includeCarry,
                 'left_pv' => $summary['left_pv'] ?? 0,
                 'right_pv' => $summary['right_pv'] ?? 0,
                 'weak_pv' => min($summary['left_pv'] ?? 0, $summary['right_pv'] ?? 0),

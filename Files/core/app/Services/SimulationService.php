@@ -132,17 +132,22 @@ class SimulationService
                     $buyerId = $pool[array_rand($pool)];
                     $orderDate = (clone $weekStart)->addDays(random_int(0, 6))->setTime(10, 0);
                     Carbon::setTestNow($orderDate);
+                    $price = (float) ($product->price ?? 3000);
+                    $quantity = 1;
+                    $total = $price * $quantity;
                     $order = Order::create([
                         'user_id' => $buyerId,
                         'product_id' => $product->id,
-                        'quantity' => 1,
-                        'total_price' => 3000,
+                        'quantity' => $quantity,
+                        'price' => $price,
+                        'total_price' => $total,
+                        'amount' => $total,
                         'trx' => 'SIM' . $weekStart->format('Ymd') . sprintf('%04d', $w * 1000 + $i),
                         'status' => Status::ORDER_PENDING,
                         'created_at' => $orderDate,
                         'updated_at' => $orderDate,
                     ]);
-                    $orderPV += (float) ($order->total_price ?? (($product->price ?? 3000) * (int) ($order->quantity ?? 1)));
+                    $orderPV += (float) ($order->total_price ?? $total);
                     $shipmentService->ship($order);
                 }
 

@@ -6,6 +6,7 @@ use App\Models\Frontend;
 use App\Http\Controllers\Controller;
 use App\Rules\FileTypeValidate;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class FrontendController extends Controller
@@ -75,15 +76,32 @@ class FrontendController extends Controller
 
     public function frontendContent(Request $request, $key)
     {
-        $purifier = new \HTMLPurifier();
-        $valInputs = $request->except('_token', 'image_input', 'key', 'status', 'type', 'id','slug');
-        foreach ($valInputs as $keyName => $input) {
-            if (gettype($input) == 'array') {
-                $inputContentValue[$keyName] = $input;
-                continue;
+        try {
+            // HTMLPurifier 可选依赖，如果不存在则跳过过滤
+            $purifier = class_exists('HTMLPurifier') ? new \HTMLPurifier(\HTMLPurifier_Config::createDefault()) : null;
+            $valInputs = $request->except('_token', 'image_input', 'key', 'status', 'type', 'id','slug');
+            foreach ($valInputs as $keyName => $input) {
+                if (gettype($input) == 'array') {
+                    $inputContentValue[$keyName] = $input;
+                    continue;
+                }
+                
+                // 修复 nicEdit/Word 复制的 Unicode 转义序列问题（如 lu3010 -> \u3010）
+                $input = preg_replace('/lu([0-9a-fA-F]{4})/', '\\u$1', $input);
+                
+                // 检测是否包含中文字符（包含中文则跳过 HTML 过滤）
+                $hasChinese = preg_match('/[\x{4e00}-\x{9fff}]/u', $input) > 0;
+                if ($hasChinese) {
+                    // 中文字符只做基本转义，保留所有内容
+                    $inputContentValue[$keyName] = htmlspecialchars_decode(htmlspecialchars($input, ENT_QUOTES, 'UTF-8'));
+                } elseif ($purifier && $input) {
+                    // 非中文内容使用 HTMLPurifier 过滤
+                    $inputContentValue[$keyName] = htmlspecialchars_decode($purifier->purify($input));
+                } else {
+                    // 没有 HTMLPurifier 时使用 strip_tags
+                    $inputContentValue[$keyName] = htmlspecialchars_decode(strip_tags($input));
+                }
             }
-            $inputContentValue[$keyName] = htmlspecialchars_decode($purifier->purify($input));
-        }
         $type = $request->type;
         if (!$type) {
             abort(404);
@@ -156,7 +174,12 @@ class FrontendController extends Controller
             }
         }
         $content->data_values = $inputContentValue;
-        $content->slug = slug($request->slug);
+        $rawSlug = (string) $request->slug;
+        $normalizedSlug = Str::slug($rawSlug);
+        if ($normalizedSlug === '' && $rawSlug !== '') {
+            $normalizedSlug = preg_replace('/[\\s\\/]+/u', '-', trim($rawSlug));
+        }
+        $content->slug = $normalizedSlug;
         if ($type != 'data') {
             $content->tempname = activeTemplateName();
         }
@@ -170,6 +193,15 @@ class FrontendController extends Controller
 
         $notify[] = ['success', 'Content updated successfully'];
         return back()->withNotify($notify);
+        } catch (\Exception $e) {
+            \Log::error('Frontend content update error: ' . $e->getMessage(), [
+                'key' => $key,
+                'type' => $request->type,
+                'trace' => $e->getTraceAsString()
+            ]);
+            $notify[] = ['error', '更新失败: ' . $e->getMessage()];
+            return back()->withNotify($notify);
+        }
     }
 
 

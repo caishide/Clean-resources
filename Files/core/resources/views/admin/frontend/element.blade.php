@@ -142,31 +142,39 @@
 
                 $('[name=slug]').on('input',function(){
                     let closestForm = $(this).closest('form');
-                    closestForm.find('[type=submit]').addClass('disabled')
+                    let submitButton = closestForm.find('[type=submit]');
                     let slug = $(this).val();
-                    slug = slug.toLowerCase().replace(/ /g,'-').replace(/[^\w-]+/g,'');
+                    let asciiSlug = slug.toLowerCase().trim().replace(/[\s/_]+/g,'-').replace(/[^a-z0-9-]/g,'');
+                    slug = asciiSlug ? asciiSlug : slug.trim().replace(/[\s/]+/g,'-');
                     $(this).val(slug);
-                    if (slug) {
-                        closestForm.find('.slug-verification').removeClass('d-none');
-                        closestForm.find('.slug-verification').html(`
-                             <small class="text--info"><i class="las la-spinner la-spin"></i> @lang('Checking')</small>
-                        `);
-                        $.get("{{ route('admin.frontend.sections.element.slug.check',[$key,@$data->id]) }}", {slug:slug},function(response){
-                            if (!response.exists) {
-                                closestForm.find('.slug-verification').html(`
-                                    <small class="text--success"><i class="las la-check"></i> @lang('Available')</small>
-                                `);
-                                closestForm.find('[type=submit]').removeClass('disabled')
-                            }
-                            if (response.exists) {
-                                closestForm.find('.slug-verification').html(`
-                                    <small class="text--danger"><i class="las la-times"></i> @lang('Slug already exists')</small>
-                                `);
-                            }
-                        });
-                    }else{
-                        closestForm.find('.slug-verification').addClass('d-none');
+                    if (!slug) {
+                        closestForm.find('.slug-verification').addClass('d-none').html('');
+                        submitButton.removeClass('disabled');
+                        return;
                     }
+
+                    submitButton.addClass('disabled');
+                    closestForm.find('.slug-verification').removeClass('d-none');
+                    closestForm.find('.slug-verification').html(`
+                         <small class="text--info"><i class="las la-spinner la-spin"></i> @lang('Checking')</small>
+                    `);
+                    $.get("{{ route('admin.frontend.sections.element.slug.check',[$key,@$data->id]) }}", {slug:slug},function(response){
+                        if (!response.exists) {
+                            closestForm.find('.slug-verification').html(`
+                                <small class="text--success"><i class="las la-check"></i> @lang('Available')</small>
+                            `);
+                            submitButton.removeClass('disabled');
+                        } else {
+                            closestForm.find('.slug-verification').html(`
+                                <small class="text--danger"><i class="las la-times"></i> @lang('Slug already exists')</small>
+                            `);
+                        }
+                    }).fail(function(){
+                        closestForm.find('.slug-verification').html(`
+                            <small class="text--danger"><i class="las la-times"></i> @lang('Slug check failed')</small>
+                        `);
+                        submitButton.removeClass('disabled');
+                    });
                 })
             @endif
         })(jQuery);

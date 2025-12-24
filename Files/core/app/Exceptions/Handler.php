@@ -26,8 +26,10 @@ class Handler extends ExceptionHandler
     public function register(): void
     {
         $this->reportable(function (Throwable $e) {
-            // Send exception to Sentry with additional context
-            Integration::captureUnhandledException($e);
+            // Send exception to Sentry with additional context when available
+            if (class_exists(Integration::class)) {
+                Integration::captureUnhandledException($e);
+            }
 
             // Log additional security-related information
             if ($this->isSecurityException($e)) {

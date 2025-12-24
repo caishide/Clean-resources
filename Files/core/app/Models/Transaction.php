@@ -29,6 +29,8 @@ class Transaction extends Model
         'remark',
         'source_type',
         'source_id',
+        'reversal_of_id',
+        'adjustment_batch_id',
     ];
 
     /**
@@ -49,6 +51,41 @@ class Transaction extends Model
         'post_balance' => 'decimal:2',
         'charge' => 'decimal:2',
     ];
+
+    public function setDetailsAttribute($value): void
+    {
+        $this->attributes['details'] = $this->normalizeDetails($value);
+    }
+
+    private function normalizeDetails($value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        if (is_string($value)) {
+            $trimmed = trim($value);
+            if ($trimmed === '') {
+                return json_encode(['text' => ''], JSON_UNESCAPED_UNICODE);
+            }
+            if ($this->isJsonString($trimmed)) {
+                return $trimmed;
+            }
+            return json_encode(['text' => $value], JSON_UNESCAPED_UNICODE);
+        }
+
+        if (is_array($value) || is_object($value)) {
+            return json_encode($value, JSON_UNESCAPED_UNICODE);
+        }
+
+        return json_encode(['text' => (string) $value], JSON_UNESCAPED_UNICODE);
+    }
+
+    private function isJsonString(string $value): bool
+    {
+        json_decode($value);
+        return json_last_error() === JSON_ERROR_NONE;
+    }
 
     /**
      * Get the user that owns the transaction

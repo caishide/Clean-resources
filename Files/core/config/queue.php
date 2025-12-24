@@ -13,7 +13,7 @@ return [
     |
     */
 
-    'default' => env('QUEUE_CONNECTION', 'database'),
+    'default' => env('QUEUE_CONNECTION', 'redis'),
 
     /*
     |--------------------------------------------------------------------------
@@ -65,13 +65,47 @@ return [
 
         'redis' => [
             'driver' => 'redis',
-            'connection' => env('REDIS_QUEUE_CONNECTION', 'default'),
+            'connection' => 'queue',
             'queue' => env('REDIS_QUEUE', 'default'),
-            'retry_after' => env('REDIS_QUEUE_RETRY_AFTER', 90),
+            'retry_after' => (int) env('REDIS_QUEUE_RETRY_AFTER', 90),
             'block_for' => null,
             'after_commit' => false,
+            'max_retry' => 3,
         ],
 
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Redis Queue Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Specific configuration for Redis queue connections
+    |
+    */
+    'redis' => [
+        'driver' => 'redis',
+        'connection' => 'default',
+        'queue' => env('REDIS_QUEUE', 'default'),
+        'retry_after' => 90,
+        'block_for' => null,
+        'after_commit' => false,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Queue Priorities
+    |--------------------------------------------------------------------------
+    |
+    | Define queue priority order (high to low)
+    | Higher priority queues are processed first
+    |
+    */
+    'priorities' => [
+        'notifications' => 10,
+        'emails' => 9,
+        'default' => 5,
+        'reports' => 1,
     ],
 
     /*
@@ -107,6 +141,21 @@ return [
         'driver' => env('QUEUE_FAILED_DRIVER', 'database-uuids'),
         'database' => env('DB_CONNECTION', 'sqlite'),
         'table' => 'failed_jobs',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Worker Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Default worker settings
+    |
+    */
+    'worker' => [
+        'sleep' => 3,
+        'max_tries' => 3,
+        'timeout' => 60,
+        'max_jobs' => 100,
     ],
 
 ];

@@ -107,7 +107,7 @@ class CronController extends Controller
      * @return string Status message
      */
     private function matchingBound(): string
-    { 
+    {
         $generalSetting = gs();
         if ($generalSetting->matching_bonus_time == 'daily') {
             $day = Date('H');
@@ -115,7 +115,7 @@ class CronController extends Controller
                 return '1';
             }
         }
-      
+
 
         if ($generalSetting->matching_bonus_time == 'weekly') {
             $day = Date('D');
@@ -130,44 +130,63 @@ class CronController extends Controller
                 return '3';
             }
         }
-       
-     
+
+
         if (Carbon::now()->toDateString() > Carbon::parse($generalSetting->last_paid)->toDateString()) {
             $generalSetting->last_paid = Carbon::now()->toDateString();
             $generalSetting->save();
 
-            $eligibleUsers = UserExtra::where('bv_left', '>=', $generalSetting->total_bv)->where('bv_right', '>=', $generalSetting->total_bv)->get();
+            // 使用with()预加载用户数据，避免N+1查询
+            $eligibleUsers = UserExtra::with('user')
+                ->where('bv_left', '>=', $generalSetting->total_bv)
+                ->where('bv_right', '>=', $generalSetting->total_bv)
+                ->get();
+
+            // 收集通知数据批量处理
+            $notificationJobs = [];
+            $userIdsToUpdate = [];
+
             foreach ($eligibleUsers as $uex) {
+                $user = $uex->user;
+                if (!$user) {
+                    continue;
+                }
+
                 $weak = $uex->bv_left < $uex->bv_right ? $uex->bv_left : $uex->bv_right;
                 $weaker = $weak < $generalSetting->max_bv ? $weak : $generalSetting->max_bv;
 
                 $pair = intval($weaker / $generalSetting->total_bv);
 
+                if ($pair <= 0) {
+                    continue;
+                }
+
                 $bonus = $pair * $generalSetting->bv_price;
 
-                $payment = User::find($uex->user_id);
-                $payment->balance += $bonus;
-                $payment->save();
-
-                $user = $payment;
+                // 直接更新用户余额
+                $user->balance += $bonus;
+                $user->save();
+                $userIdsToUpdate[] = $user->id;
 
                 $trx = new Transaction();
-                $trx->user_id = $payment->id;
+                $trx->user_id = $user->id;
                 $trx->amount = $bonus;
                 $trx->charge = self::ZERO_CHARGE;
                 $trx->trx_type = '+';
-                $trx->post_balance = $payment->balance;
+                $trx->post_balance = $user->balance;
                 $trx->remark = 'binary_commission';
                 $trx->trx = getTrx();
                 $trx->details = 'Paid ' . showAmount($bonus) . ' For ' . $pair * $generalSetting->total_bv . ' BV.';
                 $trx->save();
 
-                notify($user, 'MATCHING_BONUS', [
-                    'amount' => showAmount($bonus,currencyFormat:false),
+                // 收集通知数据，使用队列异步发送
+                $notificationJobs[] = [
+                    'user' => $user,
+                    'amount' => showAmount($bonus, currencyFormat: false),
                     'paid_bv' => $pair * $generalSetting->total_bv,
-                    'post_balance' => showAmount($payment->balance,currencyFormat:false),
-                    'trx' =>  $trx->trx,
-                ]);
+                    'post_balance' => showAmount($user->balance, currencyFormat: false),
+                    'trx' => $trx->trx,
+                ];
 
                 $paidbv = $pair * $generalSetting->total_bv;
                 if ($generalSetting->cary_flash == self::CARRY_FLASH_DEDUCT_PAID) {
@@ -207,6 +226,26 @@ class CronController extends Controller
                     createBVLog($user->id, self::BV_POSITION_RIGHT, $bv['lostr'], 'Flush ' . $bv['lostr'] . ' BV after Paid ' . $bonus . ' ' . $generalSetting->cur_text . ' For ' . $paidbv . ' BV.');
                 }
             }
+
+            // 批量派发通知任务到队列
+            foreach ($notificationJobs as $notification) {
+                try {
+                    \App\Jobs\MatchingBonusNotificationJob::dispatch(
+                        $notification['user'],
+                        $notification['amount'],
+                        $notification['paid_bv'],
+                        $notification['post_balance'],
+                        $notification['trx']
+                    )->onQueue('notifications');
+                } catch (\Exception $e) {
+                    // 记录通知发送失败，但不影响主流程
+                    \Illuminate\Support\Facades\Log::channel('performance')->error('Failed to dispatch matching bonus notification', [
+                        'user_id' => $notification['user']->id,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
+
             return '---';
         }
     }

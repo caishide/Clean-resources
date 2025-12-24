@@ -7,6 +7,7 @@ use Closure;
 use Illuminate\Http\Request;
 use App\Models\Page;
 use Illuminate\Support\Facades\View;
+use Illuminate\Support\Facades\Cache;
 
 class ActiveTemplateMiddleware
 {
@@ -21,13 +22,19 @@ class ActiveTemplateMiddleware
     {
         $viewShare['activeTemplate']     = activeTemplate();
         $viewShare['activeTemplateTrue'] = activeTemplate(true);
-        
+
         view()->share($viewShare);
 
         view()->composer([$viewShare['activeTemplate'] . 'partials.header', $viewShare['activeTemplate'] . 'partials.footer'], function ($view) {
-            $view->with([
-                'pages' => Page::where('is_default', Status::NO)->where('tempname', activeTemplate())->orderBy('id', 'DESC')->get()
-            ]);
+            // 缓存页面列表，1小时过期
+            $cacheKey = 'bc20_template_pages_' . activeTemplate();
+            $pages = Cache::remember($cacheKey, 3600, function () {
+                return Page::where('is_default', Status::NO)
+                    ->where('tempname', activeTemplate())
+                    ->orderBy('id', 'DESC')
+                    ->get();
+            });
+            $view->with(['pages' => $pages]);
         });
 
         View::addNamespace('Template', resource_path('views/templates/' . activeTemplateName()));

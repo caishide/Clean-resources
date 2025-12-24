@@ -107,14 +107,14 @@
                                 <div class="form--group">
                                     <label class="form--label">@lang('user.first_name')</label>
                                     <input class="form-control form--control" name="firstname" type="text" value="{{ old('firstname') }}" required
-                                        placeholder="Enter Your First Name">
+                                        placeholder="请输入您的名">
                                 </div>
                             </div>
                             <div class="col-lg-6">
                                 <div class="form--group">
                                     <label class="form--label">@lang('user.last_name')</label>
                                     <input class="form-control form--control" name="lastname" type="text" value="{{ old('lastname') }}" required
-                                        placeholder="Enter Your Last Name">
+                                        placeholder="请输入您的姓">
                                 </div>
                             </div>
                         </div>
@@ -124,7 +124,7 @@
                                 <div class="form--group">
                                     <label class="form--label">@lang('user.email')</label>
                                     <input class="form-control form--control checkUser" name="email" type="email" required
-                                        placeholder="Enter Your Email">
+                                        placeholder="请输入您的邮箱">
                                 </div>
                             </div>
                         </div>
@@ -134,7 +134,7 @@
                                 <div class="form--group hover-input-popup">
                                     <label class="form--label">@lang('user.password')</label>
                                     <input class="form-control form--control @if (gs('secure_password')) secure-password @endif" name="password"
-                                        type="password" required placeholder="Enter Password">
+                                        type="password" required placeholder="请输入密码">
 
                                 </div>
                             </div>
@@ -142,7 +142,7 @@
                                 <div class="form--group">
                                     <label class="form--label">@lang('user.re_password')</label>
                                     <input class="form-control form--control" name="password_confirmation" type="password" required
-                                        placeholder="Confirm Password">
+                                        placeholder="请确认密码">
                                 </div>
                             </div>
                         </div>
@@ -297,7 +297,7 @@
             });
 
             @if (!gs('registration'))
-                notify('warning', 'Registration is currently disabled');
+                notify('warning', '当前暂停注册');
             @endif
 
         })(jQuery);

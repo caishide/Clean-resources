@@ -226,6 +226,20 @@ function getImage($image, $size = null, $defaultUser = false)
     return asset('assets/images/default.png');
 }
 
+function languageFlagUrl($language)
+{
+    if (!$language) {
+        return route('language.flag', 'en');
+    }
+
+    $image = $language->image ?? null;
+    if ($image) {
+        return getImage(getFilePath('language') . '/' . $image, getFileSize('language'));
+    }
+
+    return route('language.flag', $language->code ?? 'en');
+}
+
 
 function notify($user, $templateName, $shortCodes = null, $sendVia = null, $createLog = true, $pushImage = null)
 {
@@ -860,6 +874,73 @@ function createBVLog($user_id, $lr, $amount, $details)
     $bvlog->trx_type = '-';
     $bvlog->details  = $details;
     $bvlog->save();
+}
+
+function transactionDetailsText($details): string
+{
+    if ($details === null) {
+        return '';
+    }
+
+    if (is_array($details)) {
+        return transactionDetailsTextFromArray($details);
+    }
+
+    if (is_object($details)) {
+        return transactionDetailsTextFromArray((array) $details);
+    }
+
+    if (!is_string($details)) {
+        return (string) $details;
+    }
+
+    $trimmed = trim($details);
+    if ($trimmed === '') {
+        return '';
+    }
+
+    $decoded = json_decode($trimmed, true);
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        return $details;
+    }
+
+    if (is_string($decoded)) {
+        return $decoded;
+    }
+
+    if (is_array($decoded)) {
+        if (array_key_exists('text', $decoded)) {
+            return (string) $decoded['text'];
+        }
+        return transactionDetailsTextFromArray($decoded);
+    }
+
+    if (is_scalar($decoded) || $decoded === null) {
+        return (string) $decoded;
+    }
+
+    return $details;
+}
+
+function transactionDetailsTextFromArray(array $details): string
+{
+    if (array_key_exists('text', $details)) {
+        return (string) $details['text'];
+    }
+
+    $parts = [];
+    foreach ($details as $key => $value) {
+        if (is_array($value) || is_object($value)) {
+            $value = json_encode($value, JSON_UNESCAPED_UNICODE);
+        } elseif (is_bool($value)) {
+            $value = $value ? 'true' : 'false';
+        } elseif ($value === null) {
+            $value = '';
+        }
+        $parts[] = $key . ': ' . $value;
+    }
+
+    return implode(', ', $parts);
 }
 
 /**

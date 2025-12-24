@@ -26,7 +26,7 @@ return new class extends Migration
             Schema::create('frontends', function (Blueprint $table) {
                 $table->bigIncrements('id');
                 $table->string('data_keys', 40);
-                $table->text('data_values')->nullable();
+                $table->longText('data_values')->nullable();
                 $table->longText('seo_content')->nullable();
                 $table->string('tempname', 40)->nullable();
                 $table->string('slug', 255)->nullable();

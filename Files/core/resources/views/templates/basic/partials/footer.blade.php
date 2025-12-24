@@ -14,7 +14,7 @@
             <div class="row justify-content-between gy-5">
                 <div class="col-lg-4 col-xl-3 col-sm-6">
                     <div class="footer-widget p-0">
-                        <div class="logo"><a href="{{ route('home') }}"><img src="{{ siteLogo('dark') }}" alt="logo"></a></div>
+                        <div class="logo"><a href="{{ route('home') }}"><img src="{{ siteLogo() }}" alt="logo"></a></div>
                         <p>{{ __($footer->data_values->description) }}</p>
                     </div>
                 </div>

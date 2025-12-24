@@ -40,6 +40,8 @@ class TransactionTest extends TestCase
             'remark',
             'source_type',
             'source_id',
+            'reversal_of_id',
+            'adjustment_batch_id',
         ];
         $this->assertEquals($fillable, (new Transaction())->getFillable());
     }

@@ -29,3 +29,16 @@ newman-report.json
 newman-report.html
 artillery-report.html
 security-tests-report.json
+
+# Performance & Debug Logs
+storage/logs/*.log
+!storage/logs/.gitignore
+storage/performance-data/
+
+# Cache
+bootstrap/cache/*.php
+!bootstrap/cache/.gitignore
+
+# Documentation
+docs/reports/*.md
+!docs/reports/TEMPLATE.md

@@ -11,7 +11,10 @@ use Illuminate\Support\Facades\DB;
 class PVLedgerService
 {
     /**
-     * 按安置链（Placement）向上累加PV
+     * 按安置链（Placement）向上累加PV - 纯台账方案
+     * 
+     * 只写入 pv_ledger 台账，不更新 user_extras.bv_left/bv_right
+     * 结算时从台账聚合计算弱区 PV
      */
     public function creditPV(Order $order): array
     {
@@ -21,7 +24,7 @@ class PVLedgerService
         $results = [];
 
         foreach ($upline as $node) {
-            // 幂等插入PV台账（避免重复累加 user_extras）
+            // 幂等插入PV台账
             $inserted = DB::table('pv_ledger')->insertOrIgnore([
                 [
                     'user_id' => $node['user_id'],
@@ -38,17 +41,6 @@ class PVLedgerService
                     'updated_at' => now(),
                 ],
             ]);
-
-            // 仅在首次入账时冗余左右区余额
-            if ($inserted) {
-                $userExtra = UserExtra::firstOrCreate(['user_id' => $node['user_id']]);
-                if ((int) $node['position'] === 1) {
-                    $userExtra->bv_left = ($userExtra->bv_left ?? 0) + $pvAmount;
-                } else {
-                    $userExtra->bv_right = ($userExtra->bv_right ?? 0) + $pvAmount;
-                }
-                $userExtra->save();
-            }
 
             $results[] = [
                 'user_id' => $node['user_id'],
@@ -106,14 +98,25 @@ class PVLedgerService
     /**
      * 获取用户当前PV余额
      */
-    public function getUserPVBalance(int $userId): array
+    public function getUserPVBalance(int $userId, bool $includeCarry = true): array
     {
-        $userExtra = UserExtra::where('user_id', $userId)->first();
-        
+        $leftQuery = PvLedger::where('user_id', $userId)
+            ->where('position', 1);
+        $rightQuery = PvLedger::where('user_id', $userId)
+            ->where('position', 2);
+
+        if (!$includeCarry) {
+            $leftQuery->whereNotIn('source_type', $this->getCarryFlashSourceTypes());
+            $rightQuery->whereNotIn('source_type', $this->getCarryFlashSourceTypes());
+        }
+
+        $leftPv = $leftQuery->sum(DB::raw('CASE WHEN trx_type = "+" THEN amount ELSE -ABS(amount) END'));
+        $rightPv = $rightQuery->sum(DB::raw('CASE WHEN trx_type = "+" THEN amount ELSE -ABS(amount) END'));
+
         return [
-            'left_pv' => $userExtra->bv_left ?? 0,
-            'right_pv' => $userExtra->bv_right ?? 0,
-            'total_pv' => ($userExtra->bv_left ?? 0) + ($userExtra->bv_right ?? 0)
+            'left_pv' => $leftPv,
+            'right_pv' => $rightPv,
+            'total_pv' => $leftPv + $rightPv,
         ];
     }
 
@@ -126,43 +129,39 @@ class PVLedgerService
         
         $leftPV = PvLedger::where('user_id', $userId)
             ->where('position', 1)
-            ->where('source_type', 'order')
+            ->whereIn('source_type', ['order', 'adjustment'])
             ->whereBetween('created_at', [$start, $end])
-            ->where('trx_type', '+')
-            ->sum('amount');
+            ->sum(DB::raw('CASE WHEN trx_type = "+" THEN amount ELSE -ABS(amount) END'));
             
         $rightPV = PvLedger::where('user_id', $userId)
             ->where('position', 2)
-            ->where('source_type', 'order')
+            ->whereIn('source_type', ['order', 'adjustment'])
             ->whereBetween('created_at', [$start, $end])
-            ->where('trx_type', '+')
-            ->sum('amount');
+            ->sum(DB::raw('CASE WHEN trx_type = "+" THEN amount ELSE -ABS(amount) END'));
             
         return min($leftPV, $rightPV);
     }
 
     /**
-        * 用户端PV汇总
-        */
-    public function getUserPVSummary(int $userId): array
+     * 用户端PV汇总
+     */
+    public function getUserPVSummary(int $userId, bool $includeCarry = true): array
     {
-        $balance = $this->getUserPVBalance($userId);
+        $balance = $this->getUserPVBalance($userId, $includeCarry);
         $currentWeek = now()->format('o-\WW');
         [$start, $end] = $this->getWeekDateRange($currentWeek);
 
         $leftWeek = PvLedger::where('user_id', $userId)
             ->where('position', 1)
-            ->where('source_type', 'order')
+            ->whereIn('source_type', ['order', 'adjustment'])
             ->whereBetween('created_at', [$start, $end])
-            ->where('trx_type', '+')
-            ->sum('amount');
+            ->sum(DB::raw('CASE WHEN trx_type = "+" THEN amount ELSE -ABS(amount) END'));
 
         $rightWeek = PvLedger::where('user_id', $userId)
             ->where('position', 2)
-            ->where('source_type', 'order')
+            ->whereIn('source_type', ['order', 'adjustment'])
             ->whereBetween('created_at', [$start, $end])
-            ->where('trx_type', '+')
-            ->sum('amount');
+            ->sum(DB::raw('CASE WHEN trx_type = "+" THEN amount ELSE -ABS(amount) END'));
 
         return [
             'left_pv' => $balance['left_pv'],
@@ -178,7 +177,7 @@ class PVLedgerService
     private function getWeekDateRange(string $weekKey): array
     {
         // 解析 week_key 格式，如 '2025-W51'
-        if (preg_match('/^(\\d{4})-W(\\d{2})$/', $weekKey, $matches)) {
+        if (preg_match('/^(\d{4})-W(\d{2})$/', $weekKey, $matches)) {
             $year = $matches[1];
             $week = $matches[2];
             
@@ -199,8 +198,8 @@ class PVLedgerService
     }
 
     /**
-     * 周结算时扣减PV
-     */
+      * 周结算时扣减PV
+      */
     public function deductPVForWeeklySettlement(int $userId, float $deductPV, string $weekKey): void
     {
         PvLedger::create([
@@ -228,5 +227,57 @@ class PVLedgerService
                 $userExtra->save();
             }
         }
+    }
+
+    /**
+     * 结转时扣减PV（纯台账方案）
+     * 
+     * 生成 PV 调整记录，用于扣除或冲回 PV（幂等）
+     * 
+     * @param int $userId 用户ID
+     * @param int $position 区位置（1=左区，2=右区）
+     * @param float $amount 扣减金额
+     * @param string $weekKey 周键
+     * @param string $remark 备注
+     * @param string $sourceSource 来源类型
+     * @param string $trxType 交易类型（+ 或 -）
+     * @return bool 是否插入成功
+     */
+    public function creditCarryFlash(
+        int $userId,
+        int $position,
+        float $amount,
+        string $weekKey,
+        string $remark,
+        string $sourceSource = 'carry_flash',
+        string $trxType = '-'
+    ): bool {
+        $inserted = DB::table('pv_ledger')->insertOrIgnore([
+            [
+            'user_id' => $userId,
+            'from_user_id' => null,
+            'position' => $position,
+            'level' => 0,
+            'amount' => abs($amount),
+            'trx_type' => $trxType,
+            'source_type' => $sourceSource,
+            'source_id' => $weekKey,
+            'details' => $remark,
+            'created_at' => now(),
+            'updated_at' => now()
+            ],
+        ]);
+        return (bool) $inserted;
+    }
+
+    private function getCarryFlashSourceTypes(): array
+    {
+        return [
+            'carry_flash',
+            'carry_flash_deduct_paid',
+            'carry_flash_deduct_weak',
+            'carry_flash_flush_all',
+            'carry_flash_cap_excess',
+        ];
     }
 }

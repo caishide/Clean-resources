@@ -56,7 +56,7 @@
                                 <div class="custom--dropdown">
                                     <div class="custom--dropdown__selected dropdown-list__item">
                                         <div class="thumb">
-                                            <img src="{{ getImage(getFilePath('language') . '/' . $currentLang->image, getFileSize('language')) }}"
+                                            <img src="{{ languageFlagUrl($currentLang) }}"
                                                 alt="image">
                                         </div>
                                         <span class="text"> {{ __(@$selectLang?->name ?? $currentLang->name) }} </span>
@@ -65,7 +65,7 @@
                                         @foreach ($language as $item)
                                             <li class="dropdown-list__item" data-value="en">
                                                 <a class="thumb" href="{{ route('lang', $item->code) }}"> <img
-                                                        src="{{ getImage(getFilePath('language') . '/' . $item->image, getFileSize('language')) }}"
+                                                        src="{{ languageFlagUrl($item) }}"
                                                         alt="image">
                                                     <span class="text"> {{ __($item->name) }} </span>
                                                 </a>

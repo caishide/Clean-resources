@@ -27,7 +27,7 @@
 
                                     <td>
                                         <div class="user">
-                                            <div class="thumb"><img src="{{ getImage(getFilePath('language') .'/'. $item->image,getFileSize('language')) }}" alt="{{ __($item->name) }}" class="plugin_bg"></div>
+                                            <div class="thumb"><img src="{{ languageFlagUrl($item) }}" alt="{{ __($item->name) }}" class="plugin_bg"></div>
                                             <span class="name">{{ __($item->name) }}</span>
                                         </div>
                                     </td>
@@ -44,7 +44,7 @@
                                             <a href="{{route('admin.language.key', $item->id)}}" class="btn btn-sm btn-outline--success">
                                                 <i class="la la-language"></i> @lang('Translate')
                                             </a>
-                                            <a href="javascript:void(0)" class="btn btn-sm btn-outline--primary ms-1 editBtn" data-url="{{ route('admin.language.manage.update', $item->id)}}" data-lang="{{ json_encode($item->only('name', 'text_align', 'is_default','image')) }}" data-image="{{ getImage(getFilePath('language').'/'.$item->image,getFileSize('language')) }}">
+                                            <a href="javascript:void(0)" class="btn btn-sm btn-outline--primary ms-1 editBtn" data-url="{{ route('admin.language.manage.update', $item->id)}}" data-lang="{{ json_encode($item->only('name', 'text_align', 'is_default','image')) }}" data-image="{{ languageFlagUrl($item) }}">
                                                 <i class="la la-pen"></i> @lang('Edit')
                                             </a>
                                             @if($item->id != 1)

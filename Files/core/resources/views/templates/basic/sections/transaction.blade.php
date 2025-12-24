@@ -49,7 +49,7 @@
                        </td>
 
 
-                        <td data-label="@lang('Detail')">{{ __($trx->details) }}</td>
+                        <td data-label="@lang('Detail')">{{ __(transactionDetailsText($trx->details)) }}</td>
                     </tr>
                     @empty
                         <tr>

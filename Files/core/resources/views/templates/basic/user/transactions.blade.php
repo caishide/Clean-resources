@@ -75,7 +75,7 @@
                                             {{ showAmount($trx->post_balance) }}
                                         </td>
 
-                                        <td>{{ __($trx->details) }}</td>
+                                        <td>{{ __(transactionDetailsText($trx->details)) }}</td>
                                     </tr>
                                 @empty
                                     <tr>

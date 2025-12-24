@@ -190,18 +190,38 @@ class SevenTreasuresController extends Controller
 
     /**
      * 获取下级按代数分组
+     * 优化版本：预先加载所有下属用户，避免N+1查询
      */
     private function getDownlinesByGeneration(User $user, int $maxGeneration): array
     {
         $downlines = [];
-        
-        // 从第1代开始
-        $currentLevel = User::where("ref_by", $user->id)->get();
-        
+
+        // 获取当前用户所有直接下级的ID
+        $directChildIds = User::where("ref_by", $user->id)->pluck('id')->toArray();
+
+        if (empty($directChildIds)) {
+            return $downlines;
+        }
+
+        // 预先获取指定代数内所有下属用户（一次查询）
+        $allDescendantIds = $this->getAllDescendantIds($directChildIds, $maxGeneration);
+
+        // 按代数分组
+        $descendantsByGeneration = $this->groupDescendantsByGeneration($directChildIds, $allDescendantIds, $maxGeneration);
+
+        // 构建返回数据
         for ($generation = 1; $generation <= $maxGeneration; $generation++) {
+            $generationUserIds = $descendantsByGeneration[$generation] ?? [];
+
+            if (empty($generationUserIds)) {
+                break;
+            }
+
+            // 批量获取用户信息
+            $users = User::whereIn('id', $generationUserIds)->get();
+
             $generationUsers = [];
-            
-            foreach ($currentLevel as $userInGeneration) {
+            foreach ($users as $userInGeneration) {
                 $generationUsers[] = [
                     'id' => $userInGeneration->id,
                     'username' => $userInGeneration->username,
@@ -210,26 +230,91 @@ class SevenTreasuresController extends Controller
                     'created_at' => $userInGeneration->created_at->format('Y-m-d H:i:s'),
                 ];
             }
-            
+
             $downlines[$generation] = $generationUsers;
-            
-            // 准备下一代数据
-            $nextLevel = [];
-            foreach ($currentLevel as $parentUser) {
-                $directReferrals = User::where("ref_by", $parentUser->id)->get();
-                foreach ($directReferrals as $referral) {
-                    $nextLevel[] = $referral;
-                }
-            }
-            
-            if (empty($nextLevel)) {
+        }
+
+        return $downlines;
+    }
+
+    /**
+     * 获取指定代数内的所有下属用户ID
+     *
+     * @param array $initialChildIds 初始下级ID
+     * @param int $maxGeneration 最大代数
+     * @return array 所有下属用户ID
+     */
+    private function getAllDescendantIds(array $initialChildIds, int $maxGeneration): array
+    {
+        $allIds = [];
+        $currentIds = $initialChildIds;
+
+        for ($generation = 0; $generation < $maxGeneration; $generation++) {
+            if (empty($currentIds)) {
                 break;
             }
-            
-            $currentLevel = $nextLevel;
+
+            // 批量查询当前层级的所有下级
+            $nextLevelIds = User::whereIn('ref_by', $currentIds)->pluck('id')->toArray();
+            $allIds = array_merge($allIds, $nextLevelIds);
+            $currentIds = $nextLevelIds;
         }
-        
-        return $downlines;
+
+        return $allIds;
+    }
+
+    /**
+     * 按代数分组下属用户
+     *
+     * @param array $directChildIds 直接下级ID
+     * @param array $allDescendants 所有下属ID
+     * @param int $maxGeneration 最大代数
+     * @return array 按代数分组的用户ID
+     */
+    private function groupDescendantsByGeneration(array $directChildIds, array $allDescendants, int $maxGeneration): array
+    {
+        if (empty($allDescendants)) {
+            return [];
+        }
+
+        // 构建用户ID到其推荐人的映射
+        $userToParentMap = User::whereIn('id', $allDescendants)
+            ->pluck('ref_by', 'id')
+            ->toArray();
+
+        // 使用BFS确定每个用户的代数
+        $generationMap = [];
+        $visited = [];
+        $queue = [];
+
+        // 初始化：直接将下级加入队列，第1代
+        foreach ($directChildIds as $childId) {
+            $queue[] = ['id' => $childId, 'generation' => 1];
+            $visited[$childId] = true;
+        }
+
+        while (!empty($queue)) {
+            $current = array_shift($queue);
+            $userId = $current['id'];
+            $gen = $current['generation'];
+
+            $generationMap[$gen][] = $userId;
+
+            if ($gen >= $maxGeneration) {
+                continue;
+            }
+
+            // 查找该用户的所有下级
+            $children = array_keys($userToParentMap, $userId);
+            foreach ($children as $childId) {
+                if (!isset($visited[$childId])) {
+                    $visited[$childId] = true;
+                    $queue[] = ['id' => $childId, 'generation' => $gen + 1];
+                }
+            }
+        }
+
+        return $generationMap;
     }
 
     /**

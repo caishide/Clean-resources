@@ -53,6 +53,7 @@ Route::controller('SiteController')->group(function () {
     Route::get('policy/{slug}', 'policyPages')->name('policy.pages');
 
     Route::get('placeholder-image/{size}', 'placeholderImage')->withoutMiddleware('maintenance')->name('placeholder.image');
+    Route::get('language-flag/{code}', 'languageFlag')->withoutMiddleware('maintenance')->name('language.flag');
     Route::get('maintenance-mode', 'maintenance')->withoutMiddleware('maintenance')->name('maintenance');
 
     Route::get('/{slug}', 'pages')->name('pages');

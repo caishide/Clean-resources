@@ -229,55 +229,187 @@ class SiteController extends Controller
 
     public function placeholderImage($size = null)
     {
+        // 解析尺寸
+        $dimensions = explode('x', $size);
+        $imgWidth = (int) ($dimensions[0] ?? 100);
+        $imgHeight = (int) ($dimensions[1] ?? 100);
+
+        // 限制最大尺寸
+        $imgWidth = min(max($imgWidth, 10), 2000);
+        $imgHeight = min(max($imgHeight, 10), 2000);
+
+        $text = $imgWidth . '×' . $imgHeight;
+
+        // 使用缓存键
         $cacheKey = 'placeholder_' . md5($size);
         $cacheDir = storage_path('app/public/placeholder-images');
-        $cacheFile = $cacheDir . '/' . $cacheKey . '.jpg';
 
         // 创建缓存目录
         if (!file_exists($cacheDir)) {
             mkdir($cacheDir, 0755, true);
         }
 
-        // 检查是否有缓存文件
-        if (file_exists($cacheFile) && (time() - filemtime($cacheFile)) < 86400) { // 24小时缓存
-            header('Content-Type: image/jpeg');
+        $cacheFile = $cacheDir . '/' . $cacheKey . '.svg';
+        $cacheFileJpg = $cacheDir . '/' . $cacheKey . '.jpg';
+
+        // 检查是否有缓存文件(SVG优先)
+        if (file_exists($cacheFile) && (time() - filemtime($cacheFile)) < 86400) {
+            // 优先返回SVG
+            $svg = file_get_contents($cacheFile);
+
+            // 检查浏览器是否支持SVG
+            $accept = request()->header('Accept', '');
+            if (strpos($accept, 'image/svg+xml') !== false || strpos($accept, '*/*') !== false) {
+                header('Content-Type: image/svg+xml');
+                header('Cache-Control: public, max-age=86400');
+                header('Expires: ' . gmdate('D, d M Y H:i:s', time() + 86400) . ' GMT');
+                echo $svg;
+                return;
+            }
+
+            // 否则返回JPEG
+            if (file_exists($cacheFileJpg) && (time() - filemtime($cacheFileJpg)) < 86400) {
+                header('Content-Type: image/jpeg');
+                header('Cache-Control: public, max-age=86400');
+                header('Expires: ' . gmdate('D, d M Y H:i:s', time() + 86400) . ' GMT');
+                readfile($cacheFileJpg);
+                return;
+            }
+        }
+
+        // 生成SVG（极快）
+        $fontSize = min(max((int) (($imgWidth - 20) / 6), 10), 72);
+        $bgColor = sprintf('#f0f4f8');
+        $textColor = sprintf('#64748b');
+        $textLength = strlen($text);
+
+        $svg = sprintf(
+            '<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" viewBox="0 0 %d %d">
+                <rect width="100%%" height="100%%" fill="%s"/>
+                <text x="50%%" y="50%%" font-family="Arial, sans-serif" font-size="%dpx" fill="%s" text-anchor="middle" dominant-baseline="middle" font-weight="500">%s</text>
+            </svg>',
+            $imgWidth,
+            $imgHeight,
+            $imgWidth,
+            $imgHeight,
+            $bgColor,
+            $fontSize,
+            $textColor,
+            htmlspecialchars($text)
+        );
+
+        // 保存SVG缓存
+        file_put_contents($cacheFile, $svg);
+
+        // 检查浏览器Accept头决定返回格式
+        $accept = request()->header('Accept', '');
+
+        if (strpos($accept, 'image/svg+xml') !== false || strpos($accept, '*/*') !== false) {
+            header('Content-Type: image/svg+xml');
             header('Cache-Control: public, max-age=86400');
             header('Expires: ' . gmdate('D, d M Y H:i:s', time() + 86400) . ' GMT');
-            readfile($cacheFile);
+            echo $svg;
             return;
         }
 
-        // 生成新图片
-        $imgWidth  = explode('x', $size)[0];
-        $imgHeight = explode('x', $size)[1];
-        $text      = $imgWidth . '×' . $imgHeight;
-        $fontFile  = realpath('assets/font/solaimanLipi_bold.ttf');
-        $fontSize  = round(($imgWidth - 50) / 8);
-        if ($fontSize <= 9) {
-            $fontSize = 9;
-        }
-        if ($imgHeight < 100 && $fontSize > 30) {
-            $fontSize = 30;
+        // 对于需要JPEG的浏览器，生成并缓存JPEG
+        if (!extension_loaded('gd')) {
+            // 如果没有GD库，直接返回SVG
+            header('Content-Type: image/svg+xml');
+            header('Cache-Control: public, max-age=86400');
+            echo $svg;
+            return;
         }
 
-        $image     = imagecreatetruecolor($imgWidth, $imgHeight);
-        $colorFill = imagecolorallocate($image, 100, 100, 100);
-        $bgFill    = imagecolorallocate($image, 255, 255, 255);
-        imagefill($image, 0, 0, $bgFill);
-        $textBox    = imagettfbbox($fontSize, 0, $fontFile, $text);
-        $textWidth  = abs($textBox[4] - $textBox[0]);
-        $textHeight = abs($textBox[5] - $textBox[1]);
-        $textX      = ($imgWidth - $textWidth) / 2;
-        $textY      = ($imgHeight + $textHeight) / 2;
-        header('Content-Type: image/jpeg');
-        header('Cache-Control: public, max-age=86400');
-        header('Expires: ' . gmdate('D, d M Y H:i:s', time() + 86400) . ' GMT');
-        imagettftext($image, $fontSize, 0, $textX, $textY, $colorFill, $fontFile, $text);
+        // 转换SVG为JPEG
+        try {
+            $image = imagecreatetruecolor($imgWidth, $imgHeight);
+            $bgFill = imagecolorallocate($image, 240, 248, 255);
+            $textFill = imagecolorallocate($image, 100, 116, 139);
+            imagefill($image, 0, 0, $bgFill);
 
-        // 保存到缓存文件
-        imagejpeg($image, $cacheFile, 90);
-        imagejpeg($image);
-        imagedestroy($image);
+            // 使用内置字体
+            $fontSizeScaled = min((int) ($fontSize * 0.8), 72);
+            $textX = $imgWidth / 2;
+            $textY = $imgHeight / 2 + $fontSizeScaled / 3;
+
+            // 使用imagestring代替imagettftext（不需要字体文件）
+            imagestring($image, 5, $textX - ($textLength * $fontSizeScaled / 4), $textY - $fontSizeScaled, $text, $textFill);
+
+            // 保存JPEG缓存
+            imagejpeg($image, $cacheFileJpg, 85);
+            imagedestroy($image);
+
+            header('Content-Type: image/jpeg');
+            header('Cache-Control: public, max-age=86400');
+            header('Expires: ' . gmdate('D, d M Y H:i:s', time() + 86400) . ' GMT');
+            readfile($cacheFileJpg);
+        } catch (\Exception $e) {
+            // 如果转换失败，返回SVG
+            header('Content-Type: image/svg+xml');
+            header('Cache-Control: public, max-age=86400');
+            echo $svg;
+        }
+    }
+
+    public function languageFlag($code = null)
+    {
+        $key = strtolower(trim((string) $code));
+
+        $flags = [
+            'zh' => <<<'SVG'
+<svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 50 50">
+  <rect width="50" height="50" fill="#de2910"/>
+  <polygon fill="#ffde00" points="12.00,5.00 13.76,9.57 18.66,9.84 14.85,12.93 16.11,17.66 12.00,15.00 7.89,17.66 9.15,12.93 5.34,9.84 10.24,9.57"/>
+  <polygon fill="#ffde00" points="24.00,5.00 24.76,6.95 26.85,7.07 25.24,8.40 25.76,10.43 24.00,9.30 22.24,10.43 22.76,8.40 21.15,7.07 23.24,6.95"/>
+  <polygon fill="#ffde00" points="28.00,11.00 28.76,12.95 30.85,13.07 29.24,14.40 29.76,16.43 28.00,15.30 26.24,16.43 26.76,14.40 25.15,13.07 27.24,12.95"/>
+  <polygon fill="#ffde00" points="28.00,21.00 28.76,22.95 30.85,23.07 29.24,24.40 29.76,26.43 28.00,25.30 26.24,26.43 26.76,24.40 25.15,23.07 27.24,22.95"/>
+  <polygon fill="#ffde00" points="24.00,27.00 24.76,28.95 26.85,29.07 25.24,30.40 25.76,32.43 24.00,31.30 22.24,32.43 22.76,30.40 21.15,29.07 23.24,28.95"/>
+</svg>
+SVG,
+            'zh-cn' => 'zh',
+            'zh-hans' => 'zh',
+            'en' => <<<'SVG'
+<svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 50 50">
+  <rect width="50" height="50" fill="#ffffff"/>
+  <rect y="0.00" width="50" height="3.85" fill="#b22234"/>
+  <rect y="7.69" width="50" height="3.85" fill="#b22234"/>
+  <rect y="15.38" width="50" height="3.85" fill="#b22234"/>
+  <rect y="23.08" width="50" height="3.85" fill="#b22234"/>
+  <rect y="30.77" width="50" height="3.85" fill="#b22234"/>
+  <rect y="38.46" width="50" height="3.85" fill="#b22234"/>
+  <rect y="46.15" width="50" height="3.85" fill="#b22234"/>
+  <rect width="20" height="26.92" fill="#3c3b6e"/>
+  <circle cx="3" cy="3.5" r="0.9" fill="#ffffff"/>
+  <circle cx="7" cy="3.5" r="0.9" fill="#ffffff"/>
+  <circle cx="11" cy="3.5" r="0.9" fill="#ffffff"/>
+  <circle cx="15" cy="3.5" r="0.9" fill="#ffffff"/>
+  <circle cx="3" cy="9.5" r="0.9" fill="#ffffff"/>
+  <circle cx="7" cy="9.5" r="0.9" fill="#ffffff"/>
+  <circle cx="11" cy="9.5" r="0.9" fill="#ffffff"/>
+  <circle cx="15" cy="9.5" r="0.9" fill="#ffffff"/>
+  <circle cx="3" cy="15.5" r="0.9" fill="#ffffff"/>
+  <circle cx="7" cy="15.5" r="0.9" fill="#ffffff"/>
+  <circle cx="11" cy="15.5" r="0.9" fill="#ffffff"/>
+  <circle cx="15" cy="15.5" r="0.9" fill="#ffffff"/>
+  <circle cx="3" cy="21.5" r="0.9" fill="#ffffff"/>
+  <circle cx="7" cy="21.5" r="0.9" fill="#ffffff"/>
+  <circle cx="11" cy="21.5" r="0.9" fill="#ffffff"/>
+  <circle cx="15" cy="21.5" r="0.9" fill="#ffffff"/>
+</svg>
+SVG,
+            'en-us' => 'en',
+            'en-gb' => 'en',
+        ];
+
+        $svg = $flags[$key] ?? $flags['en'];
+        if ($svg === 'zh' || $svg === 'en') {
+            $svg = $flags[$svg];
+        }
+
+        return response($svg, 200)
+            ->header('Content-Type', 'image/svg+xml')
+            ->header('Cache-Control', 'public, max-age=86400');
     }
 
     public function maintenance()

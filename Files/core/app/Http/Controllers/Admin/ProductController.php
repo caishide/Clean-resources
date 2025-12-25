@@ -127,18 +127,38 @@ class ProductController extends Controller
         $product->category_id      = $request->category;
         $product->price            = $request->price;
         $product->quantity         = $request->quantity;
+        
         // 清理 description 字段,移除 Word 文档的特殊字符
-        $product->description      = ContentSanitizer::sanitize($request->description);
+        try {
+            $product->description  = ContentSanitizer::sanitize($request->description);
+        } catch (\Exception $e) {
+            // 如果清理失败,使用 strip_tags 作为后备
+            $product->description  = strip_tags($request->description);
+            \Log::warning('Product description sanitization failed, using strip_tags', [
+                'product_id' => $id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+        
         $product->meta_title       = $request->meta_title;
         $product->meta_description = $request->meta_description;
         $product->bv               = $request->bv;
         $product->meta_keyword     = $request->meta_keywords;
 
         if ($request->specification) {
-            $product->specifications = array_values($request->specification);
+            // 清理 specification 中的特殊字符
+            $specs = [];
+            foreach ($request->specification as $key => $spec) {
+                $specs[$key] = [
+                    'name'  => ContentSanitizer::sanitize($spec['name'] ?? ''),
+                    'value' => ContentSanitizer::sanitize($spec['value'] ?? ''),
+                ];
+            }
+            $product->specifications = array_values($specs);
         } else {
             $product->specifications = null;
         }
+        
         if ($request->hasFile('thumbnail')) {
             try {
                 $thumb              = getThumbSize('products');
@@ -150,7 +170,17 @@ class ProductController extends Controller
         }
 
         // 先保存产品,确保产品已存在于数据库中
-        $product->save();
+        try {
+            $product->save();
+        } catch (\Exception $e) {
+            \Log::error('Failed to save product', [
+                'product_id' => $id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            $notify[] = ['error', 'Failed to save product: ' . $e->getMessage()];
+            return back()->withNotify($notify);
+        }
 
         // 然后再处理图片关联
         $image = $this->insertImages($request, $product, $id);

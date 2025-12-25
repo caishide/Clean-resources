@@ -4,13 +4,11 @@ namespace Tests\Feature;
 
 use App\Constants\Status;
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class IDORSecurityTest extends TestCase
 {
-    use RefreshDatabase;
-
+    
     protected $user1;
     protected $user2;
 

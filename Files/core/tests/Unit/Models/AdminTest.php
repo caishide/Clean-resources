@@ -4,7 +4,7 @@ namespace Tests\Unit\Models;
 
 use Tests\TestCase;
 use App\Models\Admin;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\Hash;
 
 /**
@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\Hash;
  */
 class AdminTest extends TestCase
 {
-    use RefreshDatabase;
+    use DatabaseTransactions;
 
     /** @test */
     public function it_has_correct_fillable_attributes()

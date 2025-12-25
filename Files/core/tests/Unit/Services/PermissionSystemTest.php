@@ -7,15 +7,14 @@ use App\Models\User;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\Models\Permission;
 use App\Traits\HasPermissionTrait;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\DatabaseTransactions;
 
 /**
  * 权限系统单元测试
  */
 class PermissionSystemTest extends TestCase
 {
-    use RefreshDatabase;
-
+    
     /**
      * 测试角色创建
      */

@@ -9,7 +9,7 @@ use App\Models\Transaction;
 use App\Models\BvLog;
 use App\Constants\Status;
 use App\Services\BonusCalculationService;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\DatabaseTransactions;
 
 /**
  * 奖金计算功能测试
@@ -18,7 +18,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
  */
 class BonusCalculationTest extends TestCase
 {
-    use RefreshDatabase;
+    use DatabaseTransactions;
 
     protected BonusCalculationService $bonusService;
 

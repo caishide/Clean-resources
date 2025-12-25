@@ -4,13 +4,13 @@ namespace Tests\Unit\Services;
 
 use App\Models\User;
 use App\Services\SevenTreasuresService;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Foundation\Testing\WithFaker;
 use Tests\TestCase;
 
 class SevenTreasuresServiceTest extends TestCase
 {
-    use RefreshDatabase, WithFaker;
+    use DatabaseTransactions, WithFaker;
 
     protected SevenTreasuresService $sevenTreasuresService;
 

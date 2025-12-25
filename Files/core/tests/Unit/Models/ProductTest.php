@@ -7,7 +7,7 @@ use App\Models\Product;
 use App\Models\Category;
 use App\Models\Order;
 use App\Constants\Status;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\Storage;
 
 /**
@@ -17,7 +17,7 @@ use Illuminate\Support\Facades\Storage;
  */
 class ProductTest extends TestCase
 {
-    use RefreshDatabase;
+    use DatabaseTransactions;
 
     protected function setUp(): void
     {

@@ -4,13 +4,13 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use App\Constants\Status;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\WithFaker;
 use Tests\TestCase;
+use Illuminate\Foundation\Testing\DatabaseTransactions;
 
 class UserRegistrationTest extends TestCase
 {
-    use RefreshDatabase, WithFaker;
+    use DatabaseTransactions, WithFaker;
 
     /** @test */
     public function user_can_register_with_valid_data()

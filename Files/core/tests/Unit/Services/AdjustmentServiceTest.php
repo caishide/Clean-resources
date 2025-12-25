@@ -11,13 +11,13 @@ use App\Models\UserPointsLog;
 use App\Models\AdjustmentBatch;
 use App\Models\AdjustmentEntry;
 use App\Services\AdjustmentService;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Foundation\Testing\WithFaker;
 use Tests\TestCase;
 
 class AdjustmentServiceTest extends TestCase
 {
-    use RefreshDatabase, WithFaker;
+    use DatabaseTransactions, WithFaker;
 
     protected AdjustmentService $adjustmentService;
 

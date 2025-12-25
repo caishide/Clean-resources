@@ -6,13 +6,11 @@ use App\Constants\Status;
 use App\Models\Admin;
 use App\Models\PendingBonus;
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class BonusReviewSecurityTest extends TestCase
 {
-    use RefreshDatabase;
-
+    
     protected $admin;
     protected $user;
 

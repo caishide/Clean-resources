@@ -7,14 +7,12 @@ use App\Models\Deposit;
 use App\Models\Gateway;
 use App\Models\GatewayCurrency;
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class PaymentGatewaySecurityTest extends TestCase
 {
-    use RefreshDatabase;
-
+    
     protected $user;
     protected $gateway;
     protected $gatewayCurrency;

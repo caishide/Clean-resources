@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Models\Product;
 use App\Models\Category;
 use App\Models\ProductImage;
+use App\Helpers\ContentSanitizer;
 use Illuminate\Http\Request;
 use App\Rules\FileTypeValidate;
 use App\Http\Controllers\Controller;
@@ -49,7 +50,8 @@ class ProductController extends Controller
         $product->name             = $request->name;
         $product->price            = $request->price;
         $product->quantity         = $request->quantity;
-        $product->description      = $request->description;
+        // 清理 description 字段,移除 Word 文档的特殊字符
+        $product->description      = ContentSanitizer::sanitize($request->description);
         $product->meta_title       = $request->meta_title;
         $product->meta_description = $request->meta_description;
         $product->meta_keyword     = $request->meta_keywords;
@@ -125,7 +127,8 @@ class ProductController extends Controller
         $product->category_id      = $request->category;
         $product->price            = $request->price;
         $product->quantity         = $request->quantity;
-        $product->description      = $request->description;
+        // 清理 description 字段,移除 Word 文档的特殊字符
+        $product->description      = ContentSanitizer::sanitize($request->description);
         $product->meta_title       = $request->meta_title;
         $product->meta_description = $request->meta_description;
         $product->bv               = $request->bv;
@@ -146,13 +149,15 @@ class ProductController extends Controller
             }
         }
 
+        // 先保存产品,确保产品已存在于数据库中
+        $product->save();
+
+        // 然后再处理图片关联
         $image = $this->insertImages($request, $product, $id);
         if (!$image) {
             $notify[] = ['error', 'Couldn\'t upload product gallery images'];
             return back()->withNotify($notify);
         }
-
-        $product->save();
 
         $notify[] = ['success', 'Product has been updated successfully'];
         return back()->withNotify($notify);

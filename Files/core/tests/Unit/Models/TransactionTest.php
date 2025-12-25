@@ -8,7 +8,7 @@ use App\Models\Transaction;
 use App\Models\Deposit;
 use App\Models\Withdrawal;
 use App\Constants\Status;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Carbon\Carbon;
 
 /**
@@ -18,7 +18,7 @@ use Carbon\Carbon;
  */
 class TransactionTest extends TestCase
 {
-    use RefreshDatabase;
+    use DatabaseTransactions;
 
     protected function setUp(): void
     {

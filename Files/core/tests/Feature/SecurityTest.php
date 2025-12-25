@@ -3,13 +3,13 @@
 namespace Tests\Feature;
 
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\WithFaker;
 use Tests\TestCase;
+use Illuminate\Foundation\Testing\DatabaseTransactions;
 
 class SecurityTest extends TestCase
 {
-    use RefreshDatabase, WithFaker;
+    use DatabaseTransactions, WithFaker;
 
     /** @test */
     public function rate_limiting_prevents_brute_force_login()

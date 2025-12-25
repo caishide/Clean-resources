@@ -28,18 +28,11 @@ class SettlementRequest extends FormRequest
     public function rules(): array
     {
         $rules = [
-            'week_key' => 'required|string|regex:/^\d{4}-W\d{2}$/',
+            'week_key' => 'required_without:quarter_key|string|regex:/^\d{4}-W\d{2}$/',
+            'quarter_key' => 'required_without:week_key|string|regex:/^\d{4}-Q[1-4]$/',
             'dry_run' => 'nullable|boolean',
             'ignore_lock' => 'nullable|boolean',
         ];
-
-        // 如果是季度结算
-        if ($this->has('quarter_key')) {
-            $rules = [
-                'quarter_key' => 'required|string|regex:/^\d{4}-Q[1-4]$/',
-                'dry_run' => 'nullable|boolean',
-            ];
-        }
 
         return $rules;
     }

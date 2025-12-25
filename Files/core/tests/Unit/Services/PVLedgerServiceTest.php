@@ -7,7 +7,7 @@ use App\Services\PVLedgerService;
 use App\Models\User;
 use App\Models\PvLedger;
 use App\Models\Order;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Foundation\Testing\WithFaker;
 use Illuminate\Support\Facades\DB;
 
@@ -22,7 +22,7 @@ use Illuminate\Support\Facades\DB;
  */
 class PVLedgerServiceTest extends TestCase
 {
-    use RefreshDatabase, WithFaker;
+    use DatabaseTransactions, WithFaker;
 
     private PVLedgerService $service;
 

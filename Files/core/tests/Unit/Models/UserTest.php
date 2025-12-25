@@ -5,12 +5,12 @@ namespace Tests\Unit\Models;
 use Tests\TestCase;
 use App\Models\User;
 use App\Models\UserExtra;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\Hash;
 
 class UserTest extends TestCase
 {
-    use RefreshDatabase;
+    use DatabaseTransactions;
 
     /** @test */
     public function user_can_be_created()

@@ -4,12 +4,12 @@ namespace Tests\Unit\Console\Commands;
 
 use Tests\TestCase;
 use App\Console\Commands\GeneratePerformanceReport;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\Storage;
 
 class GeneratePerformanceReportTest extends TestCase
 {
-    use RefreshDatabase;
+    use DatabaseTransactions;
 
     protected function setUp(): void
     {

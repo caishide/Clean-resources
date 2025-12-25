@@ -4,7 +4,7 @@ namespace Tests\Unit\Http\Controllers;
 
 use Tests\TestCase;
 use App\Http\Controllers\HealthController;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;

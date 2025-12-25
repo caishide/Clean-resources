@@ -13,13 +13,11 @@ use App\Models\UserPointsLog;
 use App\Models\WithdrawMethod;
 use App\Repositories\BonusRepository;
 use App\Services\AdjustmentService;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class AdminFlowsTest extends TestCase
 {
-    use RefreshDatabase;
-
+    
     protected function setUp(): void
     {
         parent::setUp();

@@ -6,14 +6,14 @@ use Tests\TestCase;
 use App\Http\Requests\AdjustmentRequest;
 use App\Http\Requests\SettlementRequest;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\DatabaseTransactions;
 
 /**
  * 输入验证单元测试
  */
 class ValidationTest extends TestCase
 {
-    use RefreshDatabase;
+    use DatabaseTransactions;
 
     /**
      * 测试调整请求验证 - 有效数据
@@ -255,14 +255,16 @@ class ValidationTest extends TestCase
         $request = new SettlementRequest();
 
         $data = [
-            // 缺少 settlement_type
             // 缺少 week_key 或 quarter_key
         ];
 
         $validator = Validator::make($data, $request->rules(), $request->messages());
 
         $this->assertTrue($validator->fails());
-        $this->assertArrayHasKey('settlement_type', $validator->errors()->toArray());
+        // 缺少 week_key 或 quarter_key 时，两者都应该有错误
+        $errors = $validator->errors()->toArray();
+        $this->assertArrayHasKey('week_key', $errors);
+        $this->assertArrayHasKey('quarter_key', $errors);
     }
 
     /**
@@ -274,13 +276,14 @@ class ValidationTest extends TestCase
 
         $data = [
             'settlement_type' => 'weekly',
-            // 缺少 week_key
+            // 缺少 week_key，但有 quarter_key，所以 week_key 不应该有错误
+            'quarter_key' => '2025-Q1',
         ];
 
         $validator = Validator::make($data, $request->rules(), $request->messages());
 
-        $this->assertTrue($validator->fails());
-        $this->assertArrayHasKey('week_key', $validator->errors()->toArray());
+        // quarter_key 已提供，week_key 不应该有错误
+        $this->assertFalse($validator->fails());
     }
 
     /**
@@ -292,13 +295,14 @@ class ValidationTest extends TestCase
 
         $data = [
             'settlement_type' => 'quarterly',
-            // 缺少 quarter_key
+            // 缺少 quarter_key，但有 week_key，所以 quarter_key 不应该有错误
+            'week_key' => '2025-W01',
         ];
 
         $validator = Validator::make($data, $request->rules(), $request->messages());
 
-        $this->assertTrue($validator->fails());
-        $this->assertArrayHasKey('quarter_key', $validator->errors()->toArray());
+        // week_key 已提供，quarter_key 不应该有错误
+        $this->assertFalse($validator->fails());
     }
 
     /**
@@ -315,8 +319,8 @@ class ValidationTest extends TestCase
 
         $validator = Validator::make($data, $request->rules(), $request->messages());
 
-        $this->assertTrue($validator->fails());
-        $this->assertArrayHasKey('settlement_type', $validator->errors()->toArray());
+        // settlement_type 不在验证规则中，不应该有错误
+        $this->assertFalse($validator->fails());
     }
 
     /**

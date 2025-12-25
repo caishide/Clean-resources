@@ -4,13 +4,13 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use App\Models\UserLogin;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Foundation\Testing\WithFaker;
 use Tests\TestCase;
 
 class PerformanceTest extends TestCase
 {
-    use RefreshDatabase, WithFaker;
+    use DatabaseTransactions, WithFaker;
 
     /** @test */
     public function dashboard_loads_within_acceptable_time()

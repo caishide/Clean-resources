@@ -5,13 +5,11 @@ namespace Tests\Feature;
 use App\Constants\Status;
 use App\Models\Admin;
 use App\Models\AuditLog;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class AdminImpersonationSecurityTest extends TestCase
 {
-    use RefreshDatabase;
-
+    
     protected $admin;
     protected $targetUser;
 

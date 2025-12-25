@@ -5,15 +5,13 @@ namespace Tests\Feature;
 use App\Constants\Status;
 use App\Models\AdminNotification;
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class FileDownloadSecurityTest extends TestCase
 {
-    use RefreshDatabase;
-
+    
     protected $user;
     protected $admin;
 

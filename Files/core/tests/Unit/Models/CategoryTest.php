@@ -6,7 +6,7 @@ use Tests\TestCase;
 use App\Models\Category;
 use App\Models\Product;
 use App\Constants\Status;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\Storage;
 
 /**
@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\Storage;
  */
 class CategoryTest extends TestCase
 {
-    use RefreshDatabase;
+    use DatabaseTransactions;
 
     protected function setUp(): void
     {

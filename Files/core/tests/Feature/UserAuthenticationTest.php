@@ -5,7 +5,7 @@ namespace Tests\Feature;
 use Tests\TestCase;
 use App\Models\User;
 use App\Constants\Status;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Session;
 
@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\Session;
  */
 class UserAuthenticationTest extends TestCase
 {
-    use RefreshDatabase;
+    use DatabaseTransactions;
 
     /** @test */
     public function user_can_register_with_valid_data()

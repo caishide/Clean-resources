@@ -8,7 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Session;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\DatabaseTransactions;
 
 /**
  * LanguageMiddleware中间件单元测试
@@ -17,7 +17,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
  */
 class LanguageMiddlewareTest extends TestCase
 {
-    use RefreshDatabase;
+    use DatabaseTransactions;
 
     protected function setUp(): void
     {

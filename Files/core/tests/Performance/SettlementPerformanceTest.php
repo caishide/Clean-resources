@@ -11,7 +11,7 @@ use App\Services\PVLedgerService;
 use App\Services\PVLedgerServiceOptimized;
 use App\Services\CarryFlash\CarryFlashContext;
 use App\Services\CarryFlash\CarryFlashStrategyFactory;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 
@@ -20,8 +20,7 @@ use Illuminate\Support\Facades\DB;
  */
 class SettlementPerformanceTest extends TestCase
 {
-    use RefreshDatabase;
-
+    
     private SettlementServiceWithStrategy $settlementService;
     private PVLedgerService $pvService;
     private PVLedgerServiceOptimized $pvServiceOptimized;

@@ -4,13 +4,11 @@ namespace Tests\Feature;
 
 use App\Constants\Status;
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class PasswordPolicySecurityTest extends TestCase
 {
-    use RefreshDatabase;
-
+    
     /** @test */
     public function user_password_must_be_at_least_8_characters()
     {

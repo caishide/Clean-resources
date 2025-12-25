@@ -5,13 +5,13 @@ namespace Tests\Unit\Jobs;
 use Tests\TestCase;
 use App\Jobs\SendWelcomeEmailJob;
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Queue;
 
 class SendWelcomeEmailJobTest extends TestCase
 {
-    use RefreshDatabase;
+    use DatabaseTransactions;
 
     protected function setUp(): void
     {

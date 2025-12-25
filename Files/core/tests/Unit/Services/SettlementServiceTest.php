@@ -11,7 +11,7 @@ use App\Models\User;
 use App\Models\PvLedger;
 use App\Models\WeeklySettlement;
 use App\Models\QuarterlySettlement;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Config;
 
@@ -20,8 +20,7 @@ use Illuminate\Support\Facades\Config;
  */
 class SettlementServiceTest extends TestCase
 {
-    use RefreshDatabase;
-
+    
     private SettlementServiceWithStrategy $settlementService;
     private PVLedgerService $pvService;
     private CarryFlashContext $carryFlashContext;

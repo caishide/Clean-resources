@@ -10,7 +10,7 @@ use App\Services\SettlementServiceWithStrategy;
 use App\Services\PVLedgerService;
 use App\Services\CarryFlash\CarryFlashContext;
 use App\Services\CarryFlash\CarryFlashStrategyFactory;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Config;
 
@@ -19,7 +19,7 @@ use Illuminate\Support\Facades\Config;
  */
 class SettlementFeatureTest extends TestCase
 {
-    use RefreshDatabase;
+    use DatabaseTransactions;
 
     private SettlementServiceWithStrategy $settlementService;
     private PVLedgerService $pvService;

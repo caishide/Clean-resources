@@ -4,7 +4,7 @@ namespace Tests\Unit\Rules;
 
 use Tests\TestCase;
 use App\Rules\StrongPassword;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\DatabaseTransactions;
 
 /**
  * StrongPassword验证规则单元测试
@@ -13,7 +13,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
  */
 class StrongPasswordTest extends TestCase
 {
-    use RefreshDatabase;
+    use DatabaseTransactions;
 
     protected StrongPassword $rule;
 

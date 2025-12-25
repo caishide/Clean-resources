@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Schema;
 use App\Models\GeneralSetting;
@@ -10,8 +9,7 @@ use Tests\TestCase;
 
 class LanguageMiddlewareSecurityTest extends TestCase
 {
-    use RefreshDatabase;
-
+    
     protected function setUp(): void
     {
         parent::setUp();

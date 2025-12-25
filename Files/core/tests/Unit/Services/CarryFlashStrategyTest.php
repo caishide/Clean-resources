@@ -10,7 +10,7 @@ use App\Services\CarryFlash\DeductPaidStrategy;
 use App\Services\CarryFlash\DeductWeakStrategy;
 use App\Services\CarryFlash\FlushAllStrategy;
 use App\Services\CarryFlash\DisabledStrategy;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -18,8 +18,7 @@ use Illuminate\Support\Facades\DB;
  */
 class CarryFlashStrategyTest extends TestCase
 {
-    use RefreshDatabase;
-
+    
     private PVLedgerService $pvService;
     private CarryFlashContext $context;
     private CarryFlashStrategyFactory $factory;

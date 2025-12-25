@@ -7,13 +7,11 @@ use App\Models\Admin;
 use App\Models\AdjustmentBatch;
 use App\Models\AdjustmentEntry;
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class AdjustmentBatchSecurityTest extends TestCase
 {
-    use RefreshDatabase;
-
+    
     protected $admin;
     protected $user;
 

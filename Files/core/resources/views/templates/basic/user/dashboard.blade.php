@@ -1,5 +1,10 @@
 @extends($activeTemplate . 'layouts.master')
 @section('content')
+    @php
+        $user = auth()->user();
+        $pointsBalance = $asset->points ?? 0;
+        $canCheckIn = !$checkedIn;
+    @endphp
     <div class="container">
         <div class="row">
             <div class="col-md-12">
@@ -214,6 +219,74 @@
                             <div class="icon"><i class="flaticon-money-bag"></i></div>
                         </div>
                         <div class="dashboard-item-body">
+                        </div>
+                    </div>
+                </div>
+
+                {{-- 莲子积分卡片 --}}
+                <div class="col-sm-6 col-md-6 col-lg-6 col-xl-4">
+                    <div class="dashboard-item" style="border-left: 4px solid #9b59b6;">
+                        <div class="dashboard-item-header">
+                            <div class="header-left">
+                                <h6 class="title">莲子积分</h6>
+                                <h3 class="ammount" style="color: #9b59b6;">{{ showAmount($pointsBalance) }}</h3>
+                            </div>
+                            <div class="icon" style="background: rgba(155, 89, 182, 0.1); color: #9b59b6;">
+                                <i class="fas fa-seedling"></i>
+                            </div>
+                        </div>
+                        <div class="dashboard-item-body">
+                            <div class="d-flex justify-content-between align-items-center mt-2">
+                                <span class="text-muted small">每日签到 +10</span>
+                                <form action="{{ route('user.points.checkin') }}" method="POST" style="display: inline;">
+                                    @csrf
+                                    <button type="submit" class="btn btn--sm btn--base" @disabled(!$canCheckIn)>
+                                        @if($canCheckIn)
+                                            <i class="fas fa-calendar-check"></i> 签到
+                                        @else
+                                            <i class="fas fa-check"></i> 已签到
+                                        @endif
+                                    </button>
+                                </form>
+                            </div>
+                            <div class="mt-2">
+                                <a href="{{ route('user.points.center') }}" class="text--base small">
+                                    <i class="fas fa-arrow-right"></i> 查看积分中心
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {{-- 七宝进阶快捷入口 --}}
+                @php
+                    $rankCode = $user->leader_rank_code ?? null;
+                    $rankNames = [
+                        'liuli_xingzhe' => '琉璃行者',
+                        'huangjin_daoshi' => '黄金导师',
+                        'manao_hufa' => '玛瑙护法',
+                        'moni_dade' => '摩尼大德',
+                        'jingang_zunzhe' => '金刚尊者'
+                    ];
+                    $currentRank = $rankCode ? ($rankNames[$rankCode] ?? '未设定') : '未设定';
+                @endphp
+                <div class="col-sm-6 col-md-6 col-lg-6 col-xl-4">
+                    <div class="dashboard-item" style="border-left: 4px solid #f39c12;">
+                        <div class="dashboard-item-header">
+                            <div class="header-left">
+                                <h6 class="title">七宝进阶</h6>
+                                <h3 class="ammount" style="color: #f39c12; font-size: 1.2rem;">{{ $currentRank }}</h3>
+                            </div>
+                            <div class="icon" style="background: rgba(243, 156, 18, 0.1); color: #f39c12;">
+                                <i class="fas fa-star"></i>
+                            </div>
+                        </div>
+                        <div class="dashboard-item-body">
+                            <div class="mt-2">
+                                <a href="{{ route('user.seven.treasures.index') }}" class="text--base small">
+                                    <i class="fas fa-chart-line"></i> 查看职级进度与分红
+                                </a>
+                            </div>
                         </div>
                     </div>
                 </div>

@@ -38,7 +38,15 @@ class UserController extends Controller
         $pendingWithdraw  = Withdrawal::where('user_id', auth()->id())->where('status', 2)->count();
         $totalRef         = User::where('ref_by', auth()->id())->count();
         $totalBvCut       = BvLog::where('user_id', auth()->id())->where('trx_type', '-')->sum('amount');
-        return view('Template::user.dashboard', compact('pageTitle', 'totalDeposit', 'totalWithdraw', 'completeWithdraw', 'pendingWithdraw', 'totalRef', 'totalBvCut'));
+
+        // 莲子积分相关数据
+        $asset = UserAsset::where('user_id', auth()->id())->first();
+        $checkedIn = UserPointsLog::where('user_id', auth()->id())
+            ->where('source_type', 'DAILY')
+            ->whereDate('created_at', today())
+            ->exists();
+
+        return view('Template::user.dashboard', compact('pageTitle', 'totalDeposit', 'totalWithdraw', 'completeWithdraw', 'pendingWithdraw', 'totalRef', 'totalBvCut', 'asset', 'checkedIn'));
     }
 
     public function depositHistory(Request $request)

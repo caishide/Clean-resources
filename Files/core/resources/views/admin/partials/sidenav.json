@@ -181,6 +181,50 @@
         "route_name": "admin.exports.weekly",
         "menu_active": "admin.exports.*"
     },
+    "risk_reports": {
+        "keyword": [
+            "Risk",
+            "K Factor",
+            "K值",
+            "Anomaly",
+            "Dashboard"
+        ],
+        "title": "风控报表",
+        "icon": "las la-shield-alt",
+        "menu_active": "admin.reports.*",
+        "submenu": [
+            {
+                "keyword": [
+                    "K Factor History",
+                    "K值历史",
+                    "K Value"
+                ],
+                "title": "K值历史",
+                "route_name": "admin.reports.k-factor",
+                "menu_active": "admin.reports.k-factor"
+            },
+            {
+                "keyword": [
+                    "Settlement Anomaly",
+                    "结算异常",
+                    "Anomaly"
+                ],
+                "title": "结算异常",
+                "route_name": "admin.reports.anomaly",
+                "menu_active": "admin.reports.anomaly"
+            },
+            {
+                "keyword": [
+                    "Risk Dashboard",
+                    "风控仪表盘",
+                    "Dashboard"
+                ],
+                "title": "风控仪表盘",
+                "route_name": "admin.reports.dashboard",
+                "menu_active": "admin.reports.dashboard"
+            }
+        ]
+    },
     "bonus_config": {
         "keyword": [
             "Bonus",

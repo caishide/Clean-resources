@@ -446,6 +446,14 @@ Route::middleware('admin')->group(function () {
         Route::post('clear-cache', 'clearUserCache')->name('clear-cache');
     });
 
+    // 风控报表
+    Route::controller('RiskReportController')->prefix('reports')->name('reports.')->group(function () {
+        Route::get('k-factor', 'kFactorHistory')->name('k-factor');
+        Route::get('k-factor/export', 'exportKFactor')->name('k-factor.export');
+        Route::get('anomaly', 'settlementAnomaly')->name('anomaly');
+        Route::get('risk-dashboard', 'dashboard')->name('dashboard');
+    });
+
     //Order
     Route::controller('OrderController')->name('order.')->prefix('order')->group(function () {
         Route::get('/{user_id?}', 'index')->name('index');

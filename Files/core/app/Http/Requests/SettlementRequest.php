@@ -76,14 +76,18 @@ class SettlementRequest extends FormRequest
     /**
      * 获取验证后的数据
      */
-    public function validated(): array
+    public function validated($key = null, $default = null)
     {
         $data = parent::validated();
-        
+
         // 设置默认值
         $data['dry_run'] = $this->has('dry_run') ? (bool) $this->dry_run : false;
         $data['ignore_lock'] = $this->has('ignore_lock') ? (bool) $this->ignore_lock : false;
-        
+
+        if ($key !== null) {
+            return $data[$key] ?? $default;
+        }
+
         return $data;
     }
 }

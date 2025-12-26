@@ -14,8 +14,18 @@
 
 # 云服务器配置
 REMOTE_USER="root"
-REMOTE_HOST="[你的IPv6地址]"  # 替换为你的 IPv6 地址
+REMOTE_HOST="240e:95d:c01:700::4:2a9c"  # IPv6 地址
+REMOTE_PORT="22"  # SSH 端口（默认 22，如果不同请修改）
 REMOTE_PATH="/www/wwwroot/h2-home.cn"
+
+# SSH 连接选项（IPv6 需要特殊处理）
+SSH_OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10"
+
+# SSH 密钥配置（如果使用密钥认证，取消注释并设置）
+# SSH_KEY_PATH="$HOME/.ssh/id_rsa"  # SSH 私钥路径
+# if [ -n "$SSH_KEY_PATH" ]; then
+#     SSH_OPTS="$SSH_OPTS -i $SSH_KEY_PATH"
+# fi
 
 # 本地项目路径
 LOCAL_PATH="/www/wwwroot/binaryecom20"
@@ -98,11 +108,11 @@ do_sync() {
     echo "  开始同步"
     echo "=========================================="
     echo "本地路径: $LOCAL_PATH"
-    echo "远程路径: $REMOTE_USER@$REMOTE_HOST:$REMOTE_PATH"
+    echo "远程路径: $REMOTE_USER@[$REMOTE_HOST]:$REMOTE_PATH"
     echo ""
     
-    # 构建 rsync 命令
-    RSYNC_CMD="rsync -avz --progress"
+    # 构建 rsync 命令（IPv6 需要使用 -e 指定 SSH）
+    RSYNC_CMD="rsync -avz --progress -e 'ssh -p ${REMOTE_PORT} ${SSH_OPTS}'"
     
     if [ "$dry_run" = "true" ]; then
         RSYNC_CMD="$RSYNC_CMD --dry-run"
@@ -116,8 +126,8 @@ do_sync() {
     # 添加排除项
     RSYNC_CMD="$RSYNC_CMD $EXCLUDE_FILES"
     
-    # 添加源和目标
-    RSYNC_CMD="$RSYNC_CMD $LOCAL_PATH/ $REMOTE_USER@$REMOTE_HOST:$REMOTE_PATH/"
+    # 添加源和目标（IPv6 地址需要用方括号包裹）
+    RSYNC_CMD="$RSYNC_CMD $LOCAL_PATH/ $REMOTE_USER@[$REMOTE_HOST]:$REMOTE_PATH/"
     
     echo "执行命令: $RSYNC_CMD"
     echo ""
@@ -177,8 +187,9 @@ echo "=========================================="
 echo "  Git 自动同步脚本"
 echo "=========================================="
 echo "本地路径: $LOCAL_PATH"
-echo "远程服务器: $REMOTE_USER@$REMOTE_HOST"
+echo "远程服务器: $REMOTE_USER@[$REMOTE_HOST]:$REMOTE_PORT"
 echo "远程路径: $REMOTE_PATH"
+echo "宝塔面板: http://[$REMOTE_HOST]:13040/bfe8cfc3"
 echo "=========================================="
 echo ""
 

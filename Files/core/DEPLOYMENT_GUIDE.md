@@ -55,6 +55,7 @@ cd /www/wwwroot/binaryecom20/Files/core
 - [九、上线前检查清单](#九上线前检查清单)
 - [十、部署脚本](#十部署脚本)
 - [十一、常见问题](#十一常见问题)
+- [十二、IPv6 服务器代码同步（推荐）](#十二ipv6-服务器代码同步推荐)
 
 ---
 
@@ -155,6 +156,14 @@ if ! systemctl is-active --quiet mysql 2>/dev/null; then
     exit 1
 fi
 echo "✅ MySQL 服务运行中"
+required_extensions=("pdo" "pdo_mysql" "mbstring" "json")
+for ext in "${required_extensions[@]}"; do
+    if ! php -m | grep -q "^$ext$"; then
+        echo "❌ 错误: PHP 扩展缺失: $ext"
+        exit 1
+    fi
+done
+echo "✅ PHP 扩展完整"
 echo "========== 部署前检查完成 =========="
 EOF
 
@@ -239,7 +248,7 @@ ls -ld /backup/mysql
 
 ```bash
 # 进入项目目录
-cd /path/to/binaryecom20
+cd /www/wwwroot/binaryecom20/Files/core
 
 # 复制环境文件
 cp .env .env.production
@@ -369,27 +378,42 @@ DB_USER="binary_user"
 backup_dir="/backup/mysql"
 timestamp=$(date +%Y%m%d_%H%M%S)
 backup_file="${backup_dir}/${DB_NAME}_${timestamp}.sql"
+
 echo "========== 数据库备份 =========="
+
 if [ ! -d "$backup_dir" ]; then
-    echo "❌ 错误: 备份目录不存在"
+    echo "❌ 错误: 备份目录不存在: $backup_dir"
     exit 1
 fi
+
 available_mb=$(df -m "$backup_dir" | awk 'NR==2 {print $4}')
 if [ "$available_mb" -lt 1024 ]; then
-    echo "❌ 错误: 磁盘空间不足"
+    echo "❌ 错误: 磁盘空间不足 (当前: ${available_mb}MB)"
     exit 1
 fi
-echo "✅ 磁盘空间充足"
+echo "✅ 磁盘空间充足: ${available_mb}MB"
+
+echo "正在备份数据库: $DB_NAME"
+echo "备份文件: $backup_file"
+
 if mysqldump -u "$DB_USER" -p "$DB_NAME" > "$backup_file" 2>&1; then
     if [ -s "$backup_file" ]; then
         backup_size=$(du -h "$backup_file" | cut -f1)
-        echo "✅ 备份成功: $backup_size"
+        echo "✅ 备份成功"
+        echo "备份大小: $backup_size"
         echo "备份文件: $backup_file"
+
         echo "备份时间: $(date '+%Y-%m-%d %H:%M:%S')" > "${backup_file}.info"
+        echo "备份大小: $backup_size" >> "${backup_file}.info"
+        echo "数据库: $DB_NAME" >> "${backup_file}.info"
+
         find "$backup_dir" -name "${DB_NAME}_*.sql" -mtime +7 -delete
+        find "$backup_dir" -name "${DB_NAME}_*.sql.info" -mtime +7 -delete
+
         exit 0
     else
-        echo "❌ 备份文件为空"
+        echo "❌ 错误: 备份文件为空"
+        rm -f "$backup_file"
         exit 1
     fi
 else
@@ -507,21 +531,21 @@ php artisan migrate --pretend --env=production
 
 # 阶段 1: 创建表（安全）
 echo "========== 阶段 1: 创建表 =========="
-php artisan migrate --path=/database/migrations/0001_01_01_*.php --force --env=production
-php artisan migrate --path=/database/migrations/2025_12_18_00000*.php --force --env=production
-php artisan migrate --path=/database/migrations/2025_12_18_00001[4-9].php --force --env=production
-php artisan migrate --path=/database/migrations/2025_12_18_00002*.php --force --env=production
-php artisan migrate --path=/database/migrations/2025_12_19_000024*.php --force --env=production
-php artisan migrate --path=/database/migrations/2025_12_20_000*.php --force --env=production
-php artisan migrate --path=/database/migrations/2025_12_20_100000*.php --force --env=production
-php artisan migrate --path=/database/migrations/2025_12_20_110000*.php --force --env=production
-php artisan migrate --path=/database/migrations/2025_12_20_120000*.php --force --env=production
-php artisan migrate --path=/database/migrations/2025_12_20_120100*.php --force --env=production
-php artisan migrate --path=/database/migrations/2025_12_20_120200*.php --force --env=production
-php artisan migrate --path=/database/migrations/2025_12_20_120300*.php --force --env=production
-php artisan migrate --path=/database/migrations/2025_12_20_190542*.php --force --env=production
-php artisan migrate --path=/database/migrations/2025_12_22_*.php --force --env=production
-php artisan migrate --path=/database/migrations/2025_12_23_120000*.php --force --env=production
+php artisan migrate --path=database/migrations/0001_01_01_*.php --force --env=production
+php artisan migrate --path=database/migrations/2025_12_18_00000*.php --force --env=production
+php artisan migrate --path=database/migrations/2025_12_18_00001[4-9].php --force --env=production
+php artisan migrate --path=database/migrations/2025_12_18_00002*.php --force --env=production
+php artisan migrate --path=database/migrations/2025_12_19_000024*.php --force --env=production
+php artisan migrate --path=database/migrations/2025_12_20_000*.php --force --env=production
+php artisan migrate --path=database/migrations/2025_12_20_100000*.php --force --env=production
+php artisan migrate --path=database/migrations/2025_12_20_110000*.php --force --env=production
+php artisan migrate --path=database/migrations/2025_12_20_120000*.php --force --env=production
+php artisan migrate --path=database/migrations/2025_12_20_120100*.php --force --env=production
+php artisan migrate --path=database/migrations/2025_12_20_120200*.php --force --env=production
+php artisan migrate --path=database/migrations/2025_12_20_120300*.php --force --env=production
+php artisan migrate --path=database/migrations/2025_12_20_190542*.php --force --env=production
+php artisan migrate --path=database/migrations/2025_12_22_*.php --force --env=production
+php artisan migrate --path=database/migrations/2025_12_23_120000*.php --force --env=production
 
 # 验证阶段 1
 php artisan migrate:status --env=production
@@ -535,18 +559,18 @@ fi
 
 # 阶段 2: 添加字段（中等风险）
 echo "========== 阶段 2: 添加字段 =========="
-php artisan migrate --path=/database/migrations/2025_12_18_000010*.php --force --env=production
-php artisan migrate --path=/database/migrations/2025_12_18_000011*.php --force --env=production
-php artisan migrate --path=/database/migrations/2025_12_18_000012*.php --force --env=production
-php artisan migrate --path=/database/migrations/2025_12_18_000015*.php --force --env=production
-php artisan migrate --path=/database/migrations/2025_12_18_000018*.php --force --env=production
-php artisan migrate --path=/database/migrations/2025_12_18_000023*.php --force --env=production
-php artisan migrate --path=/database/migrations/2025_12_24_100000*.php --force --env=production
-php artisan migrate --path=/database/migrations/2025_12_25_000000*.php --force --env=production
-php artisan migrate --path=/database/migrations/2025_12_25_000001*.php --force --env=production
-php artisan migrate --path=/database/migrations/2025_12_25_020000*.php --force --env=production
-php artisan migrate --path=/database/migrations/2025_12_25_100000*.php --force --env=production
-php artisan migrate --path=/database/migrations/2025_12_26_000001*.php --force --env=production
+php artisan migrate --path=database/migrations/2025_12_18_000010*.php --force --env=production
+php artisan migrate --path=database/migrations/2025_12_18_000011*.php --force --env=production
+php artisan migrate --path=database/migrations/2025_12_18_000012*.php --force --env=production
+php artisan migrate --path=database/migrations/2025_12_18_000015*.php --force --env=production
+php artisan migrate --path=database/migrations/2025_12_18_000018*.php --force --env=production
+php artisan migrate --path=database/migrations/2025_12_18_000023*.php --force --env=production
+php artisan migrate --path=database/migrations/2025_12_24_100000*.php --force --env=production
+php artisan migrate --path=database/migrations/2025_12_25_000000*.php --force --env=production
+php artisan migrate --path=database/migrations/2025_12_25_000001*.php --force --env=production
+php artisan migrate --path=database/migrations/2025_12_25_020000*.php --force --env=production
+php artisan migrate --path=database/migrations/2025_12_25_100000*.php --force --env=production
+php artisan migrate --path=database/migrations/2025_12_26_000001*.php --force --env=production
 
 # 验证阶段 2
 php artisan migrate:status --env=production
@@ -567,9 +591,9 @@ if [ "$confirm" != "yes" ]; then
     exit 0
 fi
 
-php artisan migrate --path=/database/migrations/2025_12_19_210000*.php --force --env=production
-php artisan migrate --path=/database/migrations/2025_12_23_024635*.php --force --env=production
-php artisan migrate --path=/database/migrations/2025_12_24_000000*.php --force --env=production
+php artisan migrate --path=database/migrations/2025_12_19_210000*.php --force --env=production
+php artisan migrate --path=database/migrations/2025_12_23_024635*.php --force --env=production
+php artisan migrate --path=database/migrations/2025_12_24_000000*.php --force --env=production
 
 # ========== 步骤 3: 查看迁移状态 ==========
 php artisan migrate:status --env=production
@@ -696,7 +720,7 @@ php artisan db:seed --env=production
 
 # 步骤 1: 在测试环境执行
 echo "在测试环境执行迁移..."
-php artisan migrate --path=/database/migrations/2025_12_25_100000_expand_product_description_field.php --env=testing
+php artisan migrate --path=database/migrations/2025_12_25_100000_expand_product_description_field.php --env=testing
 
 # 步骤 2: 验证数据完整性
 php artisan tinker --env=testing
@@ -714,7 +738,7 @@ php artisan tinker --env=testing
 
 # 步骤 5: 记录执行时间
 echo "迁移开始时间: $(date '+%Y-%m-%d %H:%M:%S')" > migration-timing.log
-php artisan migrate --path=/database/migrations/2025_12_25_100000_expand_product_description_field.php --force --env=production
+php artisan migrate --path=database/migrations/2025_12_25_100000_expand_product_description_field.php --force --env=production
 echo "迁移结束时间: $(date '+%Y-%m-%d %H:%M:%S')" >> migration-timing.log
 ```
 
@@ -757,7 +781,7 @@ php artisan migrate:status --env=production
 
 ```bash
 # ========== 步骤 1：迁移前备份 ==========
-mysqldump -u binary_user -p binary_db > /backup/binary_db_$(date +%Y%m%d_%H%M%S).sql
+mysqldump -u binary_user -p binary_db > /backup/mysql/binary_db_$(date +%Y%m%d_%H%M%S).sql
 
 # ========== 步骤 2：发现问题，执行回滚 ==========
 php artisan migrate:rollback --env=production
@@ -766,7 +790,7 @@ php artisan migrate:rollback --env=production
 php artisan migrate:status --env=production
 
 # ========== 步骤 4：如需完全恢复，使用备份 ==========
-mysql -u binary_user -p binary_db < /backup/binary_db_20251225_120000.sql
+mysql -u binary_user -p binary_db < /backup/mysql/binary_db_20251225_120000.sql
 ```
 
 ### 7.4 自动化恢复脚本
@@ -843,13 +867,18 @@ cd /www/wwwroot/binaryecom20/Files/core
 cat > restore-database.sh << 'EOF'
 #!/bin/bash
 set -e
+
+# 检查参数
 if [ -z "$1" ]; then
     echo "❌ 错误: 请指定备份文件路径"
+    echo "用法: ./restore-database.sh <备份文件路径>"
+    echo "示例: ./restore-database.sh /backup/mysql/binary_db_20251226_120000.sql"
     exit 1
 fi
 backup_file="$1"
 db_name="binary_db"
 db_user="binary_user"
+
 echo "========== 数据库恢复 =========="
 echo "⚠️  警告: 此操作将覆盖当前数据库"
 read -p "确认恢复? (yes/no): " confirm
@@ -858,13 +887,27 @@ if [ "$confirm" != "yes" ]; then
     exit 0
 fi
 if [ ! -f "$backup_file" ]; then
-    echo "❌ 错误: 备份文件不存在"
+    echo "❌ 错误: 备份文件不存在: $backup_file"
     exit 1
 fi
+
+if [ ! -s "$backup_file" ]; then
+    echo "❌ 错误: 备份文件为空"
+    exit 1
+fi
+
+if [ -f "${backup_file}.info" ]; then
+    echo "备份信息:"
+    cat "${backup_file}.info"
+fi
+
 echo "正在恢复数据库..."
 if mysql -u "$db_user" -p "$db_name" < "$backup_file" 2>&1; then
     echo "✅ 数据库恢复成功"
+
     php artisan cache:clear --env=production
+    php artisan config:clear --env=production
+    php artisan route:clear --env=production
     echo "✅ 缓存已清理"
 else
     echo "❌ 数据库恢复失败"
@@ -1295,6 +1338,64 @@ mysql -u binary_user -p binary_db < backup_file.sql 2>&1 | tee restore.log
 
 # 4. 如果恢复失败，从最近的可用备份恢复
 ```
+
+---
+
+## 十二、IPv6 服务器代码同步（推荐）
+
+> 适用场景：云服务器只有 IPv6，无法从 GitHub 直接 `git pull`。
+
+### 12.1 方案 A（推荐）：推送式部署（不需要服务器访问 GitHub）
+
+**步骤 0：确保本地能 SSH 登录云服务器**
+
+```bash
+ssh root@[你的IPv6地址]
+```
+
+**步骤 1：在云服务器创建裸仓库**
+
+```bash
+mkdir -p /www/wwwroot/repos
+cd /www/wwwroot/repos
+git init --bare binaryecom20.git
+```
+
+**步骤 2：配置 post-receive 自动更新工作区**
+
+```bash
+cat > /www/wwwroot/repos/binaryecom20.git/hooks/post-receive << 'EOF'
+#!/bin/bash
+set -e
+
+GIT_DIR="/www/wwwroot/repos/binaryecom20.git"
+WORK_TREE="/www/wwwroot/binaryecom20/Files/core"
+branch="refs/heads/master"
+
+while read oldrev newrev ref; do
+  if [ "$ref" = "$branch" ]; then
+    git --work-tree="$WORK_TREE" --git-dir="$GIT_DIR" checkout -f master
+  fi
+done
+EOF
+
+chmod +x /www/wwwroot/repos/binaryecom20.git/hooks/post-receive
+```
+
+**步骤 3：在本地电脑添加远程并推送**
+
+```bash
+cd /www/wwwroot/binaryecom20/Files/core
+git remote add cloud ssh://root@[你的IPv6地址]:22/www/wwwroot/repos/binaryecom20.git
+git push cloud master
+```
+
+> 如果你的分支是 `main`，把上面的 `master` 替换为 `main`。
+
+### 12.2 方案 B（备选）：镜像仓库（Gitee）+ 云服务器拉取
+
+1. 在 Gitee 导入 GitHub 仓库并开启镜像同步  
+2. 云服务器只从 Gitee `git pull`（IPv6 可达时效果最好）
 
 ---
 
